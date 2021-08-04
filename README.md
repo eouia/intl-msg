@@ -1,2 +1,2 @@
-# intl-translator
-Simple native `Intl` based translator for nodeJS and browser (CommonJS and ES Module)
+# intl-msg
+Simple native `Intl` based message converter for nodeJS and browser (CommonJS and ES Module)
