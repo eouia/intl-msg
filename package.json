@@ -1,0 +1,37 @@
+{
+  "name": "intl-msg",
+  "version": "0.1.0",
+  "description": "Simple native `Intl` based message converter for nodeJS and browser (CommonJS and ES Module)",
+  "type": "commonjs",
+  "main": "./commonjs/main.js",
+  "exports": {
+    ".": {
+      "require":  "./commonjs/main.js",
+      "default": "./esm/main.ms"
+    }
+  },
+  "module": "./esm/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eouia/intl-msg.git"
+  },
+  "keywords": [
+    "Intl",
+    "translator",
+    "json",
+    "module",
+    "language",
+    "i18n",
+    "l10n",
+    "esm"
+  ],
+  "author": "eouia0819@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eouia/intl-msg/issues"
+  },
+  "homepage": "https://github.com/eouia/intl-msg#readme"
+}
