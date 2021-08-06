@@ -1,3 +1,5 @@
+# WARNING: NOT YET COMPLETED
+
 # intl-msg
 Simple native `Intl`(> node 16) based message converter for nodeJS and browser (CommonJS and ES Module)
 
