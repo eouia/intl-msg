@@ -22,6 +22,11 @@ function isPlainObject(value) {
 	return prototype === null || prototype === Object.prototype;
 }
 
+function toArray (item) {
+  if(!item) return []
+  return (Array.isArray(item)) ? [...item] : [item]
+}
+
 var _log = console
 
 class IntlMsg {
@@ -29,15 +34,15 @@ class IntlMsg {
   #locales = []
   #formatters = {}
 
-  constructor (locales = [], dictionaries = {}, log = console) {
+  constructor ({ locales = [], dictionaries = {}, log = console } = {}) {
     this.setLocale(locales)
     this.setDictionary(dictionaries)
     this.#initFormatter()
     this.setLogger(log)
   }
 
-  static factory (locales = [], dictionaries = {}, log = console) {
-    return new IntlMsg(locales, dictionaries, { log, debug })
+  static factory ({ locales = [], dictionaries = {}, log = console } = {}) {
+    return new IntlMsg({locales, dictionaries, log})
   }
 
   setLogger (log = console) {
@@ -48,15 +53,22 @@ class IntlMsg {
     return [...this.#locales]
   }
 
+  getLocales() {
+    return this.getLocale()
+  }
+
   setLocale (locales = []) {
     this.#locales = []
     this.addLocale(locales)
+    return this
+  }
+
+  setLocales (locales = []) {
+    return this.setLocales(locales)
   }
 
   addLocale (locales = []) {
-    var newLocales = []
-    if (typeof locales === 'string') newLocales.push(locales)
-    if (Array.isArray(locales)) newLocales = [...locales]
+    var newLocales = toArray(locales) 
     if (newLocales.length < 1) return this
 
     newLocales.forEach((lc) => {
@@ -72,9 +84,14 @@ class IntlMsg {
     return this
   }
 
+  addLocales (locales = []) {
+    return this.addLocale(locales)
+  }
+
   setDictionary (json = {}) {
     this.#dictionaries = {}
     this.addDictionary(json)
+    return this
   }
   
   addDictionary (json = {}) {
@@ -88,6 +105,11 @@ class IntlMsg {
       }
     }
     return this
+  }
+
+  getRawMessage(key, locales = null) {
+    var { message } = this.#findTerms(key, locales)
+    return message
   }
 
   message (key, opts = {}) {
@@ -121,10 +143,10 @@ class IntlMsg {
     return message
   }
 
-  #findTerms (key) {
+  #findTerms (key, locales = null) {
     var message = key
     var dictionaryName = null
-    var locales = [...this.#locales]
+    var locales = (locales) ? toArray(locales) : [...this.#locales]
 
     const dictionaryList = Object.keys(this.#dictionaries)
     var found = null
@@ -143,11 +165,10 @@ class IntlMsg {
         }
       }
     }
-
     return {
       message: this.#dictionaries[found]?.translations[key] || key,
       dictionaryName: found,
-      originalLocale: originalLocale
+      originalLocale: originalLocale,
     }
   }
 
@@ -174,6 +195,7 @@ class IntlMsg {
       var plural = new Intl.PluralRules(locales, options).select(value)
       return rules?.[plural] ?? rules?.other ?? ''
     })
+    return this
   }
 
   registerFormatter (format, func) {

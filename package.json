@@ -6,13 +6,13 @@
   "main": "./commonjs/main.js",
   "exports": {
     ".": {
-      "require":  "./commonjs/main.js",
+      "require": "./commonjs/main.js",
       "default": "./esm/main.ms"
     }
   },
   "module": "./esm/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "nyc --reporter=text mocha"
   },
   "repository": {
     "type": "git",
@@ -33,5 +33,10 @@
   "bugs": {
     "url": "https://github.com/eouia/intl-msg/issues"
   },
-  "homepage": "https://github.com/eouia/intl-msg#readme"
+  "homepage": "https://github.com/eouia/intl-msg#readme",
+  "devDependencies": {
+    "istanbul": "^0.4.5",
+    "mocha": "^9.0.3",
+    "nyc": "^15.1.0"
+  }
 }

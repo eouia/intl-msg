@@ -43,9 +43,6 @@ console.log(translated)
     "translations" : {
       ... // Term : Message pairs
     },
-    "pluralRules" : { // optional if you don't need
-      ... // conditional plural rules
-    },
     "formatters" : { // optionsla if you don't need
       ... // predefined or custom formatter descriptions 
     }
@@ -57,39 +54,7 @@ console.log(translated)
 }
 ```
 **Example**
-```json
-{
-  "en": {
-    "translations" : {
-      "SAY_HELLO" : "Hello, world!",
-      "CURRENT_TIME" : "It's {{time:shortTimeFormat}}",
-      "MAIL_COUNT": "You have {{mailCount}} mail{{mailCount?s}}"
-    },
-    "pluralRules" : {
-      "s" : {
-        "one" : "",
-        "other" : "s"
-      },
-      "es" : {
-        "one": "",
-        "other" : "es"
-      }
-    },
-    "formatters" : {
-      "shortTimeFormat": {
-        "format" : "dateTime",
-        "options" : {
-          "weekday": "short",
-          "year": "numeric",
-          "month": "2-digit",
-          "day": "numeric"
-        }
-      }
-    }
-  },
-  "de-DE": { ...
-}
-```
+See [test.js](https://github.com/eouia/intl-msg/blob/main/test.js)
 
 ## Locale fallback
 Let's assume you have a complete dictionary for English(en) and partial dictionary for French(fr). 
@@ -104,19 +69,19 @@ Let's assume you have a complete dictionary for English(en) and partial dictiona
   "fr": {
     "translations" : {
       "SAY_HELLO" : "Bonjour le monde."
-      // TERM : MANIFESTO is missing
+      // 'MANIFESTO' is missing
     }
   }
 }
 ```
-If you set the locale as `['fr', 'en']`, IntlMsg try to find the terms in prior dictionary first, then try other dictionaries by order until find a proper match. It will be useful when you cannot provide a whole dictionary for all language
+If you set the locale as `['fr', 'en']`, IntlMsg will try to find the terms in prior dictionary first, then try other dictionaries by order until a proper match found. It would be useful when you cannot provide full dictionaries for various languages.
 ```js
 myMsg.addLocale(['fr', 'en'])
 console.log(myMsg.translate('SAY_HELLO')) // 'Bonjour le monde.'
 console.log(myMsg.translate('MANIFESTO')) // 'I'm the king of the world!'
 ```
 
-It could be also useful when the language has sub-locales (e.g: `en-US`, `en-GB`, `en-CA`, `en-AU`, ...). You can make a default dictionary for common English, then describe exceptional rules for each sub-locale.
+It could be also useful when the language has sub-locales (e.g: `en-US`, `en-GB`, `en-CA`, `en-AU`, ...). You can make a default dictionary for common default language, then describe exceptional terms and rules for each sub-locale.
 ```json
 {
   "en" : {
@@ -145,7 +110,7 @@ myMsg.message('SAY_HELLO') // G'day, world (from 'en-AU' dictionary, because 'SA
 myMsg.setLocale('fr')
 myMsg.message('SAY_HELLO') // SAY_HELLO
 // 'fr' dictionary doesn't exist, so 'SAY_HELLO' cannot be translated.
-// Better case will be .setLocale(['fr', 'en']) as a fallback
+// Better case will be .setLocale(['fr', 'en']) for˜ a fallback
 ```
 
 
