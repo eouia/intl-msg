@@ -300,6 +300,19 @@ class IntlMsg {
       var plural = new _intl.PluralRules(locales, options).select(value)
       return rules?.[plural] ?? rules?.other ?? ''
     })
+    this.registerFormatter('pluralRange', ({locales, value, options, rules}) => {
+      if (!isRangeObject(value)) return rules?.other ?? `${value?.toString() || value}`
+      if (isNaN(value.start) || isNaN(value.end)) return rules?.other ?? `${value.start} - ${value.end}`
+
+      var pluralRules = new _intl.PluralRules(locales, options);
+      if (typeof pluralRules.selectRange !== 'function') {
+        this.#log.warn("Formatter 'pluralRange' requires Intl.PluralRules.prototype.selectRange support.")
+        return rules?.other ?? `${value.start}-${value.end}`
+      }
+
+      var plural = pluralRules.selectRange(value.start, value.end);
+      return rules?.[plural] ?? rules?.other ?? ''
+    })
     this.registerFormatter('list', function ({locales, value, options = {}}) {
       if (!Array.isArray(value)) return value?.toString() || value
       return new _intl.ListFormat(locales, options).format(value)

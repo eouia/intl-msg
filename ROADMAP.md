@@ -59,11 +59,12 @@ Why third:
 - useful, but narrower than duration and display ranges
 - depends on how we want to express range values in message templates
 
-Questions to settle before implementation:
+Settled behavior:
 
-- formatter naming
-- expected return semantics
-- fallback behavior if `Intl.PluralRules.prototype.selectRange` is unavailable
+- formatter name is `pluralRange`
+- input shape is `{ start, end }`
+- dictionary rule selection mirrors `pluralRules`
+- unsupported runtimes warn and fall back gracefully
 
 ### Step 4. Improve locale/options validation
 
@@ -102,4 +103,4 @@ These may be revisited later after the core formatter roadmap is complete.
 
 ## Current decision
 
-Step 2 is in progress: range formatters.
+Step 3 is in progress: `pluralRange`.

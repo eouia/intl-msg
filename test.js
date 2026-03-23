@@ -20,6 +20,7 @@ const dict = {
       "HUMANIZEDTIME_FORMAT": "The time of event is {{time:humanized}}",
       "SELECT_FORMAT": "Welcome {{gender:titled}}{{job:titled}} {{name}}.",
       "PLURAL_FORMAT": "There {{enemy:beVerb}} {{enemy}} {{enemy:enemies}} in the {{stage}}{{stage:ordinal}} stage.",
+      "PLURAL_RANGE_FORMAT": "Recommended for {{count}} {{count:ticketLabel}}.",
       "LIST_FORMAT": "Available Colors - {{colors:list}}",
       "NUMBER_FORMAT": "The total sales amount of the Berlin office is {{amount:EUR}}.",
       "NUMBER_RANGE_FORMAT": "Expected budget: {{amount:budgetRange}}.",
@@ -96,6 +97,13 @@ const dict = {
           "other": "th"
         },
         options: { type: 'ordinal' }
+      },
+      "ticketLabel": {
+        format: "pluralRange",
+        rules: {
+          "one": "ticket",
+          "other": "tickets"
+        }
       },
     }
   },
@@ -341,6 +349,14 @@ describe(title("4. Variable formatters"), () => {
       typeof translated, 'string'
     )
     var translated = test('PLURAL_FORMAT', {enemy:2, stage: 22})
+    assert.equal(
+      typeof translated, 'string'
+    )
+  })
+  it("'pluralRange' format test. It should select rules for a numeric range via Intl.PluralRules.selectRange.", () => {
+    var translated = test('PLURAL_RANGE_FORMAT', {
+      count: { start: 1, end: 3 }
+    })
     assert.equal(
       typeof translated, 'string'
     )
@@ -644,6 +660,59 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(logs.length, 1)
     assert.equal(logs[0][0], 'warn')
     assert.equal(logs[0][1], "Formatter 'dateTimeRange' requires Intl.DateTimeFormat.prototype.formatRange support.")
+  })
+
+  it("pluralRange formatter falls back gracefully when selectRange is unavailable", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const intlWithoutPluralRange = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: class PluralRules extends Intl.PluralRules {
+        selectRange = undefined
+      },
+      DateTimeFormat: Intl.DateTimeFormat,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: Intl.NumberFormat,
+      DurationFormat: Intl.DurationFormat,
+    }
+
+    const M2 = new IntlMsg({
+      intlPolyfill: intlWithoutPluralRange,
+      log: logger,
+      verbose: true,
+    })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          LABEL: 'Range label: {{value:tickets}}',
+        },
+        formatters: {
+          tickets: {
+            format: 'pluralRange',
+            rules: {
+              one: 'ticket',
+              other: 'tickets',
+            },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('LABEL', {
+      value: { start: 1, end: 3 }
+    })
+
+    assert.equal(translated, 'Range label: tickets')
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0][0], 'warn')
+    assert.equal(logs[0][1], "Formatter 'pluralRange' requires Intl.PluralRules.prototype.selectRange support.")
   })
 
   it("invalid per-locale dictionary payload is ignored without crashing", () => {

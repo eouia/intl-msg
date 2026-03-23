@@ -203,6 +203,7 @@ Message lookup will try each locale in order, including each locale's fallback c
 The library includes these built-in formatters:
 
 - `pluralRules`
+- `pluralRange`
 - `list`
 - `number`
 - `numberRange`
@@ -296,6 +297,34 @@ msg.message('EVENT', {
 ```
 
 The `numberRange` and `dateTimeRange` formatters expect an object with `{ start, end }`.
+
+### Plural range example
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      LABEL: 'Recommended for {{countText}} {{count:ticketLabel}}',
+    },
+    formatters: {
+      ticketLabel: {
+        format: 'pluralRange',
+        rules: {
+          one: 'ticket',
+          other: 'tickets',
+        },
+      },
+    },
+  },
+})
+
+msg.message('LABEL', {
+  countText: '1-3',
+  count: { start: 1, end: 3 },
+})
+```
+
+The `pluralRange` formatter expects `{ start, end }` and uses `Intl.PluralRules.prototype.selectRange()`.
 
 ## Custom formatters
 
