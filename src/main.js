@@ -44,6 +44,10 @@ function toDate (dateLike) {
   return date
 }
 
+function isRangeObject(value) {
+  return isPlainObject(value) && Object.hasOwn(value, 'start') && Object.hasOwn(value, 'end')
+}
+
 function toPossibleLocales(locales = []) {
   if (!(Array.isArray(locales) && locales.length > 0)) return []
   return locales.reduce((result, locale) => {
@@ -305,6 +309,17 @@ class IntlMsg {
       var ret = new _intl.NumberFormat(locales, options).format(value)
       return ret
     })
+    this.registerFormatter('numberRange', ({locales, value, options = {}} = {}) => {
+      if (!isRangeObject(value)) return value?.toString() || value
+      if (isNaN(value.start) || isNaN(value.end)) return `${value.start} - ${value.end}`
+
+      var formatter = new _intl.NumberFormat(locales, options);
+      if (typeof formatter.formatRange !== 'function') {
+        this.#log.warn("Formatter 'numberRange' requires Intl.NumberFormat.prototype.formatRange support.")
+        return `${formatter.format(value.start)} - ${formatter.format(value.end)}`
+      }
+      return formatter.formatRange(value.start, value.end)
+    })
     this.registerFormatter('select', function({locales, value, options}) {
       if (options?.[value]) return options?.[value]
       return options?.["other"] ?? value?.toString() ?? value
@@ -313,6 +328,20 @@ class IntlMsg {
       var date = toDate(value)
       if (!(date instanceof Date)) return value
       return new _intl.DateTimeFormat(locales, options).format(date)
+    })
+    this.registerFormatter('dateTimeRange', ({locales, value, options = {}}) => {
+      if (!isRangeObject(value)) return value?.toString() || value
+
+      var start = toDate(value.start)
+      var end = toDate(value.end)
+      var formatter = new _intl.DateTimeFormat(locales, options);
+
+      if (!(start instanceof Date) || !(end instanceof Date)) return `${value.start} - ${value.end}`
+      if (typeof formatter.formatRange !== 'function') {
+        this.#log.warn("Formatter 'dateTimeRange' requires Intl.DateTimeFormat.prototype.formatRange support.")
+        return `${formatter.format(start)} - ${formatter.format(end)}`
+      }
+      return formatter.formatRange(start, end)
     })
     this.registerFormatter('relativeTime', function ({locales, value, options = {}, unit='seconds'}) {
       if (isNaN(value)) return value?.toString() || value

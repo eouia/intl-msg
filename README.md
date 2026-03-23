@@ -205,8 +205,10 @@ The library includes these built-in formatters:
 - `pluralRules`
 - `list`
 - `number`
+- `numberRange`
 - `select`
 - `dateTime`
+- `dateTimeRange`
 - `relativeTime`
 - `duration`
 - `humanizedRelativeTime`
@@ -261,6 +263,39 @@ msg.message('ELAPSED', {
 ```
 
 The `duration` formatter follows `Intl.DurationFormat` and expects a duration record object such as `{ hours: 1, minutes: 30 }`.
+
+### Range examples
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      BUDGET: 'Budget: {{amount:budget}}',
+      EVENT: 'Event: {{period:schedule}}',
+    },
+    formatters: {
+      budget: {
+        format: 'numberRange',
+        options: { style: 'currency', currency: 'USD' },
+      },
+      schedule: {
+        format: 'dateTimeRange',
+        options: { month: 'short', day: 'numeric' },
+      },
+    },
+  },
+})
+
+msg.message('BUDGET', {
+  amount: { start: 1200, end: 3400 },
+})
+
+msg.message('EVENT', {
+  period: { start: '2026-03-23', end: '2026-03-25' },
+})
+```
+
+The `numberRange` and `dateTimeRange` formatters expect an object with `{ start, end }`.
 
 ## Custom formatters
 

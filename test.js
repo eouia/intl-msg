@@ -14,6 +14,7 @@ const dict = {
 
       "MSG_1": "Variables test: foo => {{foo}}, bar => {{bar}}",
       "DATETIME_FORMAT": "Today is {{today:someDateFormat}}.",
+      "DATETIME_RANGE_FORMAT": "The event runs {{period:eventDateRange}}.",
       "RELATIVETIME_FORMAT": "The next event will start {{event:relativeDayFormat}}.",
       "DURATION_FORMAT": "Elapsed time: {{elapsed:elapsedTime}}.",
       "HUMANIZEDTIME_FORMAT": "The time of event is {{time:humanized}}",
@@ -21,6 +22,7 @@ const dict = {
       "PLURAL_FORMAT": "There {{enemy:beVerb}} {{enemy}} {{enemy:enemies}} in the {{stage}}{{stage:ordinal}} stage.",
       "LIST_FORMAT": "Available Colors - {{colors:list}}",
       "NUMBER_FORMAT": "The total sales amount of the Berlin office is {{amount:EUR}}.",
+      "NUMBER_RANGE_FORMAT": "Expected budget: {{amount:budgetRange}}.",
     },
     "formatters": {
       "EUR": {
@@ -35,6 +37,10 @@ const dict = {
         format: "dateTime",
         options: { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
       },
+      "eventDateRange": {
+        format: "dateTimeRange",
+        options: { month: 'short', day: 'numeric' },
+      },
       "relativeDayFormat": {
         format: "relativeTime",
         unit: "day",
@@ -44,6 +50,10 @@ const dict = {
         options: {
           style: "short"
         }
+      },
+      "budgetRange": {
+        format: "numberRange",
+        options: { style: 'currency', currency: 'USD' }
       },
       "titled": {
         format: "select",
@@ -291,6 +301,14 @@ describe(title("4. Variable formatters"), () => {
       typeof translated, 'string'
     )
   })
+  it("'dateTimeRange' format test. It should format a date range via Intl.DateTimeFormat.formatRange.", () => {
+    var translated = test('DATETIME_RANGE_FORMAT', {
+      period: { start: '2021-08-19', end: '2021-08-21' }
+    })
+    assert.equal(
+      typeof translated, 'string'
+    )
+  })
   it("'relativeTime' format test. It should display proper phrase by locale, units and options", () => {
     var translated = test('RELATIVETIME_FORMAT', {event: 10})
     assert.equal(
@@ -335,6 +353,14 @@ describe(title("4. Variable formatters"), () => {
   })
   it("'number' format test. It should be displayed as defined format by options.", () => {
     var translated = test('NUMBER_FORMAT', {amount: 1_234_567.89})
+    assert.equal(
+      typeof translated, 'string'
+    )
+  })
+  it("'numberRange' format test. It should format a numeric range via Intl.NumberFormat.formatRange.", () => {
+    var translated = test('NUMBER_RANGE_FORMAT', {
+      amount: { start: 1200, end: 3400 }
+    })
     assert.equal(
       typeof translated, 'string'
     )
@@ -518,6 +544,106 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(logs.length, 1)
     assert.equal(logs[0][0], 'warn')
     assert.equal(logs[0][1], "Formatter 'duration' requires Intl.DurationFormat support.")
+  })
+
+  it("numberRange formatter falls back gracefully when formatRange is unavailable", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const intlWithoutNumberRange = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: Intl.PluralRules,
+      DateTimeFormat: Intl.DateTimeFormat,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: class NumberFormat extends Intl.NumberFormat {
+        formatRange = undefined
+      },
+      DurationFormat: Intl.DurationFormat,
+    }
+
+    const M2 = new IntlMsg({
+      intlPolyfill: intlWithoutNumberRange,
+      log: logger,
+      verbose: true,
+    })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          BUDGET: 'Budget: {{value:range}}',
+        },
+        formatters: {
+          range: {
+            format: 'numberRange',
+            options: { style: 'currency', currency: 'USD' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('BUDGET', {
+      value: { start: 1200, end: 3400 }
+    })
+
+    assert.equal(translated, 'Budget: $1,200.00 - $3,400.00')
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0][0], 'warn')
+    assert.equal(logs[0][1], "Formatter 'numberRange' requires Intl.NumberFormat.prototype.formatRange support.")
+  })
+
+  it("dateTimeRange formatter falls back gracefully when formatRange is unavailable", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const intlWithoutDateTimeRange = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: Intl.PluralRules,
+      DateTimeFormat: class DateTimeFormat extends Intl.DateTimeFormat {
+        formatRange = undefined
+      },
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: Intl.NumberFormat,
+      DurationFormat: Intl.DurationFormat,
+    }
+
+    const M2 = new IntlMsg({
+      intlPolyfill: intlWithoutDateTimeRange,
+      log: logger,
+      verbose: true,
+    })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          EVENT: 'Event: {{value:range}}',
+        },
+        formatters: {
+          range: {
+            format: 'dateTimeRange',
+            options: { month: 'short', day: 'numeric' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('EVENT', {
+      value: { start: '2021-08-19', end: '2021-08-21' }
+    })
+
+    assert.equal(translated, 'Event: Aug 19 - Aug 21')
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0][0], 'warn')
+    assert.equal(logs[0][1], "Formatter 'dateTimeRange' requires Intl.DateTimeFormat.prototype.formatRange support.")
   })
 
   it("invalid per-locale dictionary payload is ignored without crashing", () => {

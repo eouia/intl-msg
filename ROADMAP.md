@@ -46,16 +46,11 @@ Why second:
 - very natural fit for pricing, schedules, counts, and date spans
 - builds on existing single-value formatter model
 
-Candidate formatters:
+Settled behavior:
 
-- `numberRange`
-- `dateTimeRange`
-
-Questions to settle before implementation:
-
-- input shape for ranges
-- how to represent start/end
-- whether unsupported runtimes should fall back or throw
+- formatter names are `numberRange` and `dateTimeRange`
+- input shape is `{ start, end }`
+- unsupported runtimes warn and fall back gracefully
 
 ### Step 3. Add `pluralRange` support
 
@@ -107,4 +102,4 @@ These may be revisited later after the core formatter roadmap is complete.
 
 ## Current decision
 
-Step 1 is in progress: `duration` formatter.
+Step 2 is in progress: range formatters.
