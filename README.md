@@ -208,6 +208,7 @@ The library includes these built-in formatters:
 - `select`
 - `dateTime`
 - `relativeTime`
+- `duration`
 - `humanizedRelativeTime`
 
 ### Example
@@ -236,6 +237,30 @@ msg.message('SUMMARY', {
   amount: 1234.5,
 })
 ```
+
+### Duration example
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      ELAPSED: 'Elapsed: {{time:elapsed}}',
+    },
+    formatters: {
+      elapsed: {
+        format: 'duration',
+        options: { style: 'short' },
+      },
+    },
+  },
+})
+
+msg.message('ELAPSED', {
+  time: { hours: 1, minutes: 30, seconds: 5 },
+})
+```
+
+The `duration` formatter follows `Intl.DurationFormat` and expects a duration record object such as `{ hours: 1, minutes: 30 }`.
 
 ## Custom formatters
 

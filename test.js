@@ -15,6 +15,7 @@ const dict = {
       "MSG_1": "Variables test: foo => {{foo}}, bar => {{bar}}",
       "DATETIME_FORMAT": "Today is {{today:someDateFormat}}.",
       "RELATIVETIME_FORMAT": "The next event will start {{event:relativeDayFormat}}.",
+      "DURATION_FORMAT": "Elapsed time: {{elapsed:elapsedTime}}.",
       "HUMANIZEDTIME_FORMAT": "The time of event is {{time:humanized}}",
       "SELECT_FORMAT": "Welcome {{gender:titled}}{{job:titled}} {{name}}.",
       "PLURAL_FORMAT": "There {{enemy:beVerb}} {{enemy}} {{enemy:enemies}} in the {{stage}}{{stage:ordinal}} stage.",
@@ -37,6 +38,12 @@ const dict = {
       "relativeDayFormat": {
         format: "relativeTime",
         unit: "day",
+      },
+      "elapsedTime": {
+        format: "duration",
+        options: {
+          style: "short"
+        }
       },
       "titled": {
         format: "select",
@@ -296,6 +303,14 @@ describe(title("4. Variable formatters"), () => {
       typeof translated, 'string'
     )
   })
+  it("'duration' format test. It should format a duration record via Intl.DurationFormat.", () => {
+    var translated = test('DURATION_FORMAT', {
+      elapsed: { hours: 1, minutes: 30, seconds: 5 }
+    })
+    assert.equal(
+      typeof translated, 'string'
+    )
+  })
   it("'select' format test. ", () => {
     var translated = test('SELECT_FORMAT', { name: 'Smith', gender: 'female', job: 'cook' })
     assert.equal(
@@ -456,6 +471,53 @@ describe(title("6. Additional coverage"), () => {
     M2.addLocale('en')
     M2.addDictionary({ en: { translations: { HELLO: 'Hello' } } })
     assert.equal(M2.message('HELLO'), 'Hello')
+  })
+
+  it("duration formatter falls back gracefully when Intl.DurationFormat is unavailable", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const intlWithoutDurationFormat = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: Intl.PluralRules,
+      DateTimeFormat: Intl.DateTimeFormat,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: Intl.NumberFormat,
+    }
+
+    const M2 = new IntlMsg({
+      intlPolyfill: intlWithoutDurationFormat,
+      log: logger,
+      verbose: true,
+    })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          DURATION: 'Elapsed: {{value:elapsed}}',
+        },
+        formatters: {
+          elapsed: {
+            format: 'duration',
+            options: { style: 'short' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('DURATION', {
+      value: { hours: 1, minutes: 30 }
+    })
+
+    assert.equal(translated, 'Elapsed: {"hours":1,"minutes":30}')
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0][0], 'warn')
+    assert.equal(logs[0][1], "Formatter 'duration' requires Intl.DurationFormat support.")
   })
 
   it("invalid per-locale dictionary payload is ignored without crashing", () => {

@@ -318,6 +318,14 @@ class IntlMsg {
       if (isNaN(value)) return value?.toString() || value
       return new _intl.RelativeTimeFormat(locales, options).format(value, unit)
     })
+    this.registerFormatter('duration', ({locales, value, options = {}}) => {
+      if (typeof _intl.DurationFormat !== 'function') {
+        this.#log.warn("Formatter 'duration' requires Intl.DurationFormat support.")
+        return isPlainObject(value) ? JSON.stringify(value) : value?.toString() || value
+      }
+      if (!isPlainObject(value)) return value?.toString() || value
+      return new _intl.DurationFormat(locales, options).format(value)
+    })
     this.registerFormatter('humanizedRelativeTime', function({locales, value, options = {}}) {
       var date = toDate(value)
       if (!(date instanceof Date)) return value
