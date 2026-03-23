@@ -162,6 +162,7 @@ This build is intended for modern browsers. It is not a transpiled legacy-browse
 
 ```js
 msg.message('HELLO', { name: 'Taylor' })
+// => 'Hello, Taylor.'
 ```
 
 ### Formatted substitution
@@ -186,6 +187,7 @@ msg.addDictionary({
 })
 
 msg.message('TOTAL', { amount: 1234.5 })
+// => 'Total: $1,234.50'
 ```
 
 ## Locale fallback
@@ -244,6 +246,7 @@ msg.message('SUMMARY', {
   today: '2026-03-23',
   amount: 1234.5,
 })
+// => 'Today is Monday, March 23. Total: $1,234.50.'
 ```
 
 ### Duration example
@@ -266,6 +269,7 @@ msg.addDictionary({
 msg.message('ELAPSED', {
   time: { hours: 1, minutes: 30, seconds: 5 },
 })
+// => 'Elapsed: 1 hr, 30 min, 5 sec'
 ```
 
 The `duration` formatter follows `Intl.DurationFormat` and expects a duration record object such as `{ hours: 1, minutes: 30 }`.
@@ -295,10 +299,12 @@ msg.addDictionary({
 msg.message('BUDGET', {
   amount: { start: 1200, end: 3400 },
 })
+// => 'Budget: $1,200.00 - $3,400.00'
 
 msg.message('EVENT', {
   period: { start: '2026-03-23', end: '2026-03-25' },
 })
+// => 'Event: Mar 23-25'
 ```
 
 The `numberRange` and `dateTimeRange` formatters expect an object with `{ start, end }`.
@@ -327,6 +333,7 @@ msg.message('LABEL', {
   countText: '1-3',
   count: { start: 1, end: 3 },
 })
+// => 'Recommended for 1-3 tickets'
 ```
 
 The `pluralRange` formatter expects `{ start, end }` and uses `Intl.PluralRules.prototype.selectRange()`.
@@ -366,6 +373,9 @@ msg.addDictionary({
     },
   },
 })
+
+msg.message('TITLE', { name: 'tAYLOR' })
+// => 'Welcome, Taylor.'
 ```
 
 Custom formatter callbacks receive a single config object. Common fields include:
