@@ -447,3 +447,25 @@ npm test
 ```
 
 Tests currently build the package first, then run Mocha with `nyc` coverage.
+
+## Optional composition helper
+
+The package also provides an optional composition helper for building one merged dictionary from a priority plan:
+
+```js
+import composeDictionaries from 'intl-msg/compose'
+
+const dictionaries = await composeDictionaries(
+  [
+    { locale: 'en', source: 'default' },
+    { locale: 'en-US', source: 'langpack' },
+    { locale: 'en-CA', source: 'user' },
+  ],
+  async ({ locale, source }) => {
+    // Application-specific loading logic goes here.
+    // Return a partial dictionary object or null.
+  }
+)
+```
+
+This helper is intentionally small and optional. It does not replace the core `IntlMsg` API.

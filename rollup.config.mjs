@@ -29,6 +29,22 @@ export default [
     plugins: [emitEsmPackageJson],
   },
   {
+    input: 'src/compose.js',
+    output: {
+      file: 'dist/cjs/compose.cjs',
+      format: 'cjs',
+      exports: 'named',
+    },
+  },
+  {
+    input: 'src/compose.js',
+    output: {
+      file: 'dist/esm/compose.js',
+      format: 'es',
+    },
+    plugins: [emitEsmPackageJson],
+  },
+  {
     input: 'src/main.js',
     output: {
       file: 'dist/browser/intl-msg.js',

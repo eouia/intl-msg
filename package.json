@@ -10,6 +10,11 @@
       "require": "./dist/cjs/main.cjs",
       "import": "./dist/esm/main.js",
       "default": "./dist/esm/main.js"
+    },
+    "./compose": {
+      "require": "./dist/cjs/compose.cjs",
+      "import": "./dist/esm/compose.js",
+      "default": "./dist/esm/compose.js"
     }
   },
   "files": [

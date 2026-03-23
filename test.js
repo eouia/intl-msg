@@ -1,4 +1,5 @@
 const IntlMsg = require('./dist/cjs/main.cjs')
+const composeDictionaries = require('./dist/cjs/compose.cjs').default
 const assert = require('assert').strict
 const fs = require('fs')
 const vm = require('vm')
@@ -384,6 +385,139 @@ describe(title("4. Variable formatters"), () => {
 })
 
 describe(title("6. Additional coverage"), () => {
+  it("composeDictionaries merges partial dictionaries in plan order", async () => {
+    const registry = {
+      default: {
+        en: {
+          translations: {
+            HELLO: 'Hello',
+            COLOR: 'Color',
+          },
+        },
+      },
+      langpack: {
+        'en-US': {
+          translations: {
+            COLOR: 'Color',
+          },
+        },
+      },
+      user: {
+        'en-CA': {
+          translations: {
+            COLOR: 'Colour',
+          },
+        },
+      },
+    }
+
+    const dictionaries = await composeDictionaries(
+      [
+        { locale: 'en', source: 'default' },
+        { locale: 'en-US', source: 'langpack' },
+        { locale: 'en-CA', source: 'user' },
+      ],
+      async ({ locale, source }) => {
+        const entry = registry[source]?.[locale]
+        return entry ? { [locale]: entry } : null
+      }
+    )
+
+    assert.deepEqual(dictionaries, {
+      en: {
+        translations: {
+          HELLO: 'Hello',
+          COLOR: 'Color',
+        },
+      },
+      'en-US': {
+        translations: {
+          COLOR: 'Color',
+        },
+      },
+      'en-CA': {
+        translations: {
+          COLOR: 'Colour',
+        },
+      },
+    })
+  })
+
+  it("composeDictionaries can skip loader failures when configured", async () => {
+    const dictionaries = await composeDictionaries(
+      [
+        { locale: 'en', source: 'default' },
+        { locale: 'fr', source: 'broken' },
+        { locale: 'de', source: 'langpack' },
+      ],
+      async ({ locale, source }) => {
+        if (source === 'broken') throw new Error('load failed')
+        return {
+          [locale]: {
+            translations: {
+              HELLO: `${source}:${locale}`,
+            },
+          },
+        }
+      },
+      { onError: 'skip' }
+    )
+
+    assert.deepEqual(dictionaries, {
+      en: {
+        translations: {
+          HELLO: 'default:en',
+        },
+      },
+      de: {
+        translations: {
+          HELLO: 'langpack:de',
+        },
+      },
+    })
+  })
+
+  it("composeDictionaries output can be passed into IntlMsg", async () => {
+    const dictionaries = await composeDictionaries(
+      [
+        { locale: 'en', source: 'default' },
+        { locale: 'en-CA', source: 'user' },
+      ],
+      async ({ locale, source }) => {
+        if (source === 'default') {
+          return {
+            en: {
+              translations: {
+                HELLO: 'Hello',
+                COLOR: 'Color',
+              },
+            },
+          }
+        }
+
+        if (source === 'user') {
+          return {
+            'en-CA': {
+              translations: {
+                COLOR: 'Colour',
+              },
+            },
+          }
+        }
+
+        return null
+      }
+    )
+
+    const M2 = IntlMsg.factory({
+      locales: ['en-CA', 'en'],
+      dictionaries,
+    })
+
+    assert.equal(M2.message('HELLO'), 'Hello')
+    assert.equal(M2.message('COLOR'), 'Colour')
+  })
+
   it("browser global build exports IntlMsg on the global object", async () => {
     const source = fs.readFileSync('./dist/browser/intl-msg.js', 'utf8')
     const context = {
