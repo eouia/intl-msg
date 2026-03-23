@@ -48,6 +48,59 @@ function isRangeObject(value) {
   return isPlainObject(value) && Object.hasOwn(value, 'start') && Object.hasOwn(value, 'end')
 }
 
+function getSupportedIntlValues(key) {
+  if (typeof _intl.supportedValuesOf !== 'function') return null
+  try {
+    return _intl.supportedValuesOf(key)
+  } catch (e) {
+    return null
+  }
+}
+
+function normalizeIntlOptionValue(key, value) {
+  if (typeof value !== 'string') return value
+  if (key === 'currency') return value.toUpperCase()
+  if (key === 'calendar' || key === 'numberingSystem' || key === 'unit') return value.toLowerCase()
+  return value
+}
+
+function normalizeRelativeTimeUnit(unit) {
+  const normalizedUnit = normalizeIntlOptionValue('unit', unit)
+  const supportedUnits = getSupportedIntlValues('unit')
+  if (!supportedUnits) return normalizedUnit
+  if (supportedUnits.includes(normalizedUnit)) return normalizedUnit
+  if (normalizedUnit.endsWith('s')) {
+    const singularUnit = normalizedUnit.slice(0, -1)
+    if (supportedUnits.includes(singularUnit)) return singularUnit
+  }
+  return normalizedUnit
+}
+
+function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
+  if (!isPlainObject(options)) return { valid: false, options }
+
+  const supportedOptionKeys = ['currency', 'unit', 'calendar', 'numberingSystem']
+  for (const key of supportedOptionKeys) {
+    if (!Object.hasOwn(options, key)) continue
+
+    const normalizedValue = normalizeIntlOptionValue(key, options[key])
+    const supportedValues = getSupportedIntlValues(key)
+    if (!supportedValues) {
+      options[key] = normalizedValue
+      continue
+    }
+
+    if (!supportedValues.includes(normalizedValue)) {
+      log.warn(`Invalid Intl option '${key}':`, normalizedValue)
+      return { valid: false, options }
+    }
+
+    options[key] = normalizedValue
+  }
+
+  return { valid: true, options }
+}
+
 function toPossibleLocales(locales = []) {
   if (!(Array.isArray(locales) && locales.length > 0)) return []
   return locales.reduce((result, locale) => {
@@ -317,16 +370,21 @@ class IntlMsg {
       if (!Array.isArray(value)) return value?.toString() || value
       return new _intl.ListFormat(locales, options).format(value)
     })
-    this.registerFormatter('number', function ({locales, value, options = {}} = {}) {
+    this.registerFormatter('number', ({locales, value, options = {}} = {}) => {
       if (isNaN(value)) return value?.toString() || value
-      var ret = new _intl.NumberFormat(locales, options).format(value)
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      if (!valid) return value?.toString() || value
+      var ret = new _intl.NumberFormat(locales, validatedOptions).format(value)
       return ret
     })
     this.registerFormatter('numberRange', ({locales, value, options = {}} = {}) => {
       if (!isRangeObject(value)) return value?.toString() || value
       if (isNaN(value.start) || isNaN(value.end)) return `${value.start} - ${value.end}`
 
-      var formatter = new _intl.NumberFormat(locales, options);
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      if (!valid) return `${value.start} - ${value.end}`
+
+      var formatter = new _intl.NumberFormat(locales, validatedOptions);
       if (typeof formatter.formatRange !== 'function') {
         this.#log.warn("Formatter 'numberRange' requires Intl.NumberFormat.prototype.formatRange support.")
         return `${formatter.format(value.start)} - ${formatter.format(value.end)}`
@@ -337,17 +395,23 @@ class IntlMsg {
       if (options?.[value]) return options?.[value]
       return options?.["other"] ?? value?.toString() ?? value
     })
-    this.registerFormatter('dateTime', function ({locales, value, options = {}}) {
+    this.registerFormatter('dateTime', ({locales, value, options = {}}) => {
       var date = toDate(value)
       if (!(date instanceof Date)) return value
-      return new _intl.DateTimeFormat(locales, options).format(date)
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      if (!valid) return value
+      return new _intl.DateTimeFormat(locales, validatedOptions).format(date)
     })
     this.registerFormatter('dateTimeRange', ({locales, value, options = {}}) => {
       if (!isRangeObject(value)) return value?.toString() || value
 
       var start = toDate(value.start)
       var end = toDate(value.end)
-      var formatter = new _intl.DateTimeFormat(locales, options);
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+
+      if (!valid) return `${value.start} - ${value.end}`
+
+      var formatter = new _intl.DateTimeFormat(locales, validatedOptions);
 
       if (!(start instanceof Date) || !(end instanceof Date)) return `${value.start} - ${value.end}`
       if (typeof formatter.formatRange !== 'function') {
@@ -356,9 +420,19 @@ class IntlMsg {
       }
       return formatter.formatRange(start, end)
     })
-    this.registerFormatter('relativeTime', function ({locales, value, options = {}, unit='seconds'}) {
+    this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds'}) => {
       if (isNaN(value)) return value?.toString() || value
-      return new _intl.RelativeTimeFormat(locales, options).format(value, unit)
+      var normalizedUnit = normalizeRelativeTimeUnit(unit)
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var supportedUnits = getSupportedIntlValues('unit')
+
+      if (!valid) return value?.toString() || value
+      if (supportedUnits && !supportedUnits.includes(normalizedUnit)) {
+        this.#log.warn("Invalid Intl option 'unit':", normalizedUnit)
+        return value?.toString() || value
+      }
+
+      return new _intl.RelativeTimeFormat(locales, validatedOptions).format(value, normalizedUnit)
     })
     this.registerFormatter('duration', ({locales, value, options = {}}) => {
       if (typeof _intl.DurationFormat !== 'function') {
@@ -366,9 +440,11 @@ class IntlMsg {
         return isPlainObject(value) ? JSON.stringify(value) : value?.toString() || value
       }
       if (!isPlainObject(value)) return value?.toString() || value
-      return new _intl.DurationFormat(locales, options).format(value)
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      if (!valid) return isPlainObject(value) ? JSON.stringify(value) : value?.toString() || value
+      return new _intl.DurationFormat(locales, validatedOptions).format(value)
     })
-    this.registerFormatter('humanizedRelativeTime', function({locales, value, options = {}}) {
+    this.registerFormatter('humanizedRelativeTime', ({locales, value, options = {}}) => {
       var date = toDate(value)
       if (!(date instanceof Date)) return value
       var unit = 'seconds'
@@ -390,7 +466,17 @@ class IntlMsg {
         unit = u
         gap = Math.floor(diff / f)
       }
-      return new _intl.RelativeTimeFormat(locales, options).format(gap, unit)
+      var normalizedUnit = normalizeRelativeTimeUnit(unit)
+      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var supportedUnits = getSupportedIntlValues('unit')
+
+      if (!valid) return value
+      if (supportedUnits && !supportedUnits.includes(normalizedUnit)) {
+        this.#log.warn("Invalid Intl option 'unit':", normalizedUnit)
+        return value
+      }
+
+      return new _intl.RelativeTimeFormat(locales, validatedOptions).format(gap, normalizedUnit)
     })
     return this
   }

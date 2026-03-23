@@ -715,6 +715,102 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(logs[0][1], "Formatter 'pluralRange' requires Intl.PluralRules.prototype.selectRange support.")
   })
 
+  it("number formatter warns and falls back when currency is invalid", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const M2 = new IntlMsg({ log: logger, verbose: true, intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          TOTAL: 'Total: {{amount:price}}',
+        },
+        formatters: {
+          price: {
+            format: 'number',
+            options: { style: 'currency', currency: 'not-a-real-currency' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('TOTAL', { amount: 1234.5 })
+    const warning = logs.find((entry) => entry[0] === 'warn' && entry[1] === "Invalid Intl option 'currency':")
+
+    assert.equal(translated, 'Total: 1234.5')
+    assert.ok(warning)
+    assert.equal(warning[2], 'NOT-A-REAL-CURRENCY')
+  })
+
+  it("dateTime formatter warns and falls back when calendar is invalid", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const M2 = new IntlMsg({ log: logger, verbose: true, intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          TODAY: 'Today: {{value:date}}',
+        },
+        formatters: {
+          date: {
+            format: 'dateTime',
+            options: { calendar: 'not-a-real-calendar', month: 'short', day: 'numeric' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('TODAY', { value: '2021-08-19' })
+    const warning = logs.find((entry) => entry[0] === 'warn' && entry[1] === "Invalid Intl option 'calendar':")
+
+    assert.equal(translated, 'Today: 2021-08-19')
+    assert.ok(warning)
+    assert.equal(warning[2], 'not-a-real-calendar')
+  })
+
+  it("relativeTime formatter warns and falls back when unit is invalid", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const M2 = new IntlMsg({ log: logger, verbose: true, intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          ETA: 'ETA: {{value:eta}}',
+        },
+        formatters: {
+          eta: {
+            format: 'relativeTime',
+            unit: 'not-a-real-unit',
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('ETA', { value: 3 })
+    const warning = logs.find((entry) => entry[0] === 'warn' && entry[1] === "Invalid Intl option 'unit':")
+
+    assert.equal(translated, 'ETA: 3')
+    assert.ok(warning)
+    assert.equal(warning[2], 'not-a-real-unit')
+  })
+
   it("invalid per-locale dictionary payload is ignored without crashing", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en')

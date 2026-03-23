@@ -73,11 +73,11 @@ Why fourth:
 - improves correctness and error messages
 - does not change user-facing capabilities as much as earlier steps
 
-Candidate improvements:
+Settled behavior:
 
 - use `Intl.supportedValuesOf()` where available
-- validate currency/unit/calendar/numberingSystem inputs
-- improve warnings for invalid formatter configs
+- validate `currency`, `unit`, `calendar`, and `numberingSystem`
+- warn and fall back gracefully when invalid values are provided
 
 ### Step 5. Revisit locale modeling with `Intl.Locale`
 
@@ -103,4 +103,4 @@ These may be revisited later after the core formatter roadmap is complete.
 
 ## Current decision
 
-Step 3 is in progress: `pluralRange`.
+Step 4 is in progress: locale/options validation.

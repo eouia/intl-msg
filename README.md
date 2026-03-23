@@ -326,6 +326,19 @@ msg.message('LABEL', {
 
 The `pluralRange` formatter expects `{ start, end }` and uses `Intl.PluralRules.prototype.selectRange()`.
 
+## Option validation
+
+When the runtime supports `Intl.supportedValuesOf()`, the library validates commonly used Intl options before constructing formatters.
+
+Currently validated where applicable:
+
+- `currency`
+- `unit`
+- `calendar`
+- `numberingSystem`
+
+If an option is invalid, the formatter warns through the configured logger and falls back gracefully instead of relying only on a constructor exception.
+
 ## Custom formatters
 
 Register a formatter by name, then reference it from dictionary formatter definitions:
