@@ -136,6 +136,8 @@ function toPossibleLocales(locales = []) {
     const localeInfo = createLocaleInfo(locale)
     if (!localeInfo) return result
 
+    if (!result.includes(localeInfo.canonical)) result.push(localeInfo.canonical)
+
     var lcParts = localeInfo.baseName.split('-')
     while(lcParts.length > 0) {
       var search = lcParts.join('-')

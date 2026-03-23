@@ -1127,6 +1127,19 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(M2.message('HI'), 'found in en')
   })
 
+  it("locale fallback first checks the full canonical locale before falling back to the base locale chain", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US-u-ca-buddhist')
+    M2.addDictionary({
+      'en-US-u-ca-buddhist': { translations: { HELLO: 'found in en-US-u-ca-buddhist' } },
+      'en-US': { translations: { HELLO: 'found in en-US', HI: 'found in en-US' } },
+      'en': { translations: { HI: 'found in en' } },
+    })
+
+    assert.equal(M2.message('HELLO'), 'found in en-US-u-ca-buddhist')
+    assert.equal(M2.message('HI'), 'found in en-US')
+  })
+
   it("formatter error: falls back to original value, no crash", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en')

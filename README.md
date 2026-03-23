@@ -43,7 +43,7 @@ If your target runtime does not provide the required `Intl` APIs, you must injec
 Locale input remains compatibility-friendly:
 
 - common non-BCP47 separators such as `en_US` are normalized to `en-US`
-- fallback lookup uses the locale base name, so extension subtags like `en-US-u-ca-buddhist` still fall back through `en-US` and `en`
+- fallback lookup checks the full canonical locale first, then falls back through the locale base name chain such as `en-US` and `en`
 
 ## Environment support
 
