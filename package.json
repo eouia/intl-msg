@@ -3,16 +3,24 @@
   "version": "0.1.0",
   "description": "Simple native `Intl` based message converter for nodeJS and browser (CommonJS and ES Module)",
   "type": "commonjs",
-  "main": "./commonjs/main.js",
+  "main": "./dist/cjs/main.cjs",
+  "module": "./dist/esm/main.js",
   "exports": {
     ".": {
-      "require": "./commonjs/main.js",
-      "default": "./esm/main.ms"
+      "require": "./dist/cjs/main.cjs",
+      "import": "./dist/esm/main.js",
+      "default": "./dist/esm/main.js"
     }
   },
-  "module": "./esm/main.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "nyc --reporter=text mocha"
+    "build": "rollup -c",
+    "prepack": "npm run build",
+    "test": "npm run build && nyc --reporter=text mocha"
   },
   "repository": {
     "type": "git",
@@ -37,6 +45,7 @@
   "devDependencies": {
     "istanbul": "^0.4.5",
     "mocha": "^9.0.3",
-    "nyc": "^15.1.0"
+    "nyc": "^15.1.0",
+    "rollup": "^4.60.0"
   }
 }

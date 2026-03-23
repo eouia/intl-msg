@@ -1,4 +1,4 @@
-const IntlMsg = require('./commonjs/main.js')
+const IntlMsg = require('./dist/cjs/main.cjs')
 const assert = require('assert').strict
 
 
@@ -9,7 +9,7 @@ const dict = {
       "SIMPLE_MESSAGE": "This is a simple message in 'en' dictionary.",
       "CURRENT_LOCALES": "Current locale : {{locales:list}}",
       "NOT_ENUS": "This message doesn't exist in the en-US dictionary.",
-      
+
       "MSG_1": "Variables test: foo => {{foo}}, bar => {{bar}}",
       "DATETIME_FORMAT": "Today is {{today:someDateFormat}}.",
       "RELATIVETIME_FORMAT": "The next event will start {{event:relativeDayFormat}}.",
@@ -113,8 +113,10 @@ M.addLocale('en-US')
 M.addDictionary(dict)
 M.setLogger({
   log: (...args) => { console.log("LOG:", ...args) },
+  info: (...args) => { console.info("INFO:", ...args) },
+  warn: (...args) => { console.warn("WARN:", ...args) },
   error: (...args) => { console.error("ERR:", ...args) }
-})
+}, true)
 
 const _ = M.message.bind(M)
 
@@ -138,10 +140,10 @@ describe(title("1. Module construction test"), () => {
     const M = new IntlMsg()
     M.addLocale('en-US')
     M.addDictionary(dict)
-    M.addLocales(['fr', 'ja-JP']) // addLocales alias test.
+    M.addLocale(['fr', 'ja-JP'])
     var translated = M.message('DEFAULT_TEST')
     console.log(translated)
-    console.log(M.getLocales())
+    console.log(M.getLocale())
     assert.equal(
       translated, 'Welcome to `intl-msg`.'
     )
@@ -190,7 +192,7 @@ describe(title("1. Module construction test"), () => {
       locales: 'en-US',
       dictionaries: dict
     })
-    var translated = M.message('DEFAULT_TEST')    
+    var translated = M.message('DEFAULT_TEST')
     console.log(translated)
     assert.equal(
       translated, 'Welcome to `intl-msg`.'
@@ -232,7 +234,7 @@ describe(title("2. Message convert test"), () => {
 
 describe(title("3. Locale fallback"), () => {
   it("'setLocale' with array", () => {
-    M.setLocales(['en-US', 'de'])
+    M.setLocale(['en-US', 'de'])
     var translated = test('CURRENT_LOCALES', { locales: M.getLocale() })
     assert.equal(
       translated, 'Current locale : en-US or de'
@@ -256,9 +258,6 @@ describe(title("3. Locale fallback"), () => {
       translated, "Diese Nachricht existiert nur im 'de'-Wörterbuch."
     )
   })
-
-  M.setLocale(['de', 'en-US'])
-
   it("change the order of locales to ['de', 'en-US']", () => {
     M.setLocale(['de', 'en-US'])
     var translated = test('CURRENT_LOCALES', { locales: M.getLocale() })
@@ -323,49 +322,183 @@ describe(title("4. Variable formatters"), () => {
       typeof translated, 'string'
     )
   })
+})
 
-  describe(title("5. Error/Exceptions Test"), () => {
-    const logError = (e) => {
-      console.error('>', e.message)
+describe(title("6. Additional coverage"), () => {
+  it("legacy CommonJS shim loads the built CommonJS bundle", () => {
+    const LegacyIntlMsg = require('./commonjs/main.js')
+    const M2 = LegacyIntlMsg.factory({
+      locales: 'en',
+      dictionaries: {
+        en: {
+          translations: {
+            HELLO: 'Hello from legacy CommonJS shim',
+          },
+        },
+      },
+    })
+
+    assert.equal(typeof LegacyIntlMsg, 'function')
+    assert.equal(M2.message('HELLO'), 'Hello from legacy CommonJS shim')
+  })
+
+  it("legacy ESM shim re-exports the canonical ESM source", async () => {
+    const mod = await import('./esm/main.js')
+    const LegacyESMIntlMsg = mod.default
+
+    const M2 = LegacyESMIntlMsg.factory({
+      locales: 'en',
+      dictionaries: {
+        en: {
+          translations: {
+            HELLO: 'Hello from legacy ESM shim',
+          },
+        },
+      },
+    })
+
+    assert.equal(typeof LegacyESMIntlMsg, 'function')
+    assert.equal(M2.message('HELLO'), 'Hello from legacy ESM shim')
+  })
+
+  it("ESM build: default import works with the published ESM bundle", async () => {
+    const mod = await import('./dist/esm/main.js')
+    const ESMIntlMsg = mod.default
+
+    const M2 = ESMIntlMsg.factory({
+      locales: 'en',
+      dictionaries: {
+        en: {
+          translations: {
+            HELLO: 'Hello from ESM',
+          },
+        },
+      },
+    })
+
+    assert.equal(typeof ESMIntlMsg, 'function')
+    assert.equal(M2.message('HELLO'), 'Hello from ESM')
+  })
+
+  it("intlPolyfill injection: passing native Intl as polyfill should work normally", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({ en: { translations: { HELLO: 'Hello' } } })
+    assert.equal(M2.message('HELLO'), 'Hello')
+  })
+
+  it("intlPolyfill injection: incomplete polyfill is silently ignored when native Intl is available", () => {
+    // 네이티브 Intl이 있는 환경에서 불완전한 polyfill은 무시되고 native Intl이 사용됨
+    const M2 = new IntlMsg({ intlPolyfill: { invalid: true } })
+    M2.addLocale('en')
+    M2.addDictionary({ en: { translations: { HELLO: 'Hello' } } })
+    assert.equal(M2.message('HELLO'), 'Hello')
+  })
+
+  it("Dictionary.getName() returns the canonical locale name", () => {
+    M.setLocale(['en-US'])
+    M.addDictionary(dict)
+    assert.equal(M.getDictionary('en').getName(), 'en')
+    assert.equal(M.getDictionary('en-US').getName(), 'en-US')
+  })
+
+  it("getDictionary() returns null for unknown locale", () => {
+    assert.equal(M.getDictionary('zz'), null)
+  })
+
+  it("addTermToDictionary() adds a term that can be retrieved via getTermFromDictionary()", () => {
+    M.addTermToDictionary('en', 'DYNAMIC_TERM', 'dynamically added')
+    assert.equal(M.getTermFromDictionary('en', 'DYNAMIC_TERM'), 'dynamically added')
+  })
+
+  it("addTermToDictionary() on unknown locale does nothing (no crash)", () => {
+    assert.doesNotThrow(() => M.addTermToDictionary('zz', 'KEY', 'value'))
+  })
+
+  it("getTermFromDictionary() returns undefined for unknown locale", () => {
+    assert.equal(M.getTermFromDictionary('zz', 'KEY'), undefined)
+  })
+
+  it("getTermFromDictionary() returns undefined for unknown key", () => {
+    assert.equal(M.getTermFromDictionary('en', 'NO_SUCH_KEY'), undefined)
+  })
+
+  it("toPossibleLocales: locale fallback chain expands correctly (en-US -> en)", () => {
+    // toPossibleLocales는 #findTerms 내부에서 사용.
+    // en-US 딕셔너리에 없는 키는 en 딕셔너리에서 찾아야 함 — fallback이 동작한다는 것이 곧 toPossibleLocales가 작동한다는 증거.
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.addDictionary({
+      'en': { translations: { 'FALLBACK_KEY': 'found in en' } },
+      'en-US': { translations: { 'ENUS_ONLY': 'found in en-US' } }
+    })
+    // en-US에 없고 en에 있는 키 → en으로 fallback
+    assert.equal(M2.message('FALLBACK_KEY'), 'found in en')
+    // en-US에 있는 키 → en-US 우선
+    assert.equal(M2.message('ENUS_ONLY'), 'found in en-US')
+    // 로케일이 en-GB인 경우: en-GB → en 순서로 fallback
+    M2.addLocale('en-GB')
+    M2.setLocale(['en-GB'])
+    assert.equal(M2.message('FALLBACK_KEY'), 'found in en')
+  })
+
+  it("formatter error: falls back to original value, no crash", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en')
+    M2.addDictionary({
+      'en': {
+        translations: { 'ERR_MSG': 'result is {{value:broken}}' },
+        formatters: { 'broken': { format: 'alwaysThrows' } }
+      }
+    })
+    M2.registerFormatter('alwaysThrows', () => { throw new Error('intentional error') })
+    // 포매터가 실패해도 크래시 없이, 원본 값으로 치환된 메시지 반환
+    const result = M2.message('ERR_MSG', { value: 'fallbackValue' })
+    assert.equal(result, 'result is fallbackValue')
+  })
+})
+
+describe(title("5. Error/Exceptions Test"), () => {
+  const logError = (e) => {
+    console.error('>', e.message)
+  }
+  it("Weird locale name check (Try to add 'Klingon', 'Quenya' and 'ObladiOblada'. The last should be ignored without error break)", () => {
+    console.log('------------------------------')
+    try {
+      M.addLocale(['Klingon', 'Quenya', 'ObladiOblada'])
+      console.log('Current locales:', M.getLocale())
+      assert.ok(true)
+    } catch (e) {
+      logError(e)
+      assert.fail(e.toString())
     }
-    it("Weird locale name check (Try to add 'Klingon', 'Quenya' and 'ObladiOblada'. The last should be ignored without error break)", () => {
-      console.log('------------------------------')
-      try {
-        M.addLocale(['Klingon', 'Quenya', 'ObladiOblada'])
-        console.log('Current locales:', M.getLocale())
-        assert.ok(true)
-      } catch (e) {
-        logError(e)
-        assert.fail(e.toString())
-      }
-    })
-    it("Invalid dictionary check. Invalid dictionary should be ignored without error break.", () => {
-      console.log('------------------------------')
-      try {
-        M.addDictionary([1, 2, 3, 4])
-        M.addDictionary({
-          "ObladiOblada": {
-            "translations": {
-              "MSG": "Blah Blah"
-            }
+  })
+  it("Invalid dictionary check. Invalid dictionary should be ignored without error break.", () => {
+    console.log('------------------------------')
+    try {
+      M.addDictionary([1, 2, 3, 4])
+      M.addDictionary({
+        "ObladiOblada": {
+          "translations": {
+            "MSG": "Blah Blah"
           }
-        })
-        console.log('Current dictionaries:', M.getDictionaryNames())
-        assert.ok(true)
-      } catch (e) {
-        logError(e)
-        assert.fail(e.toString())
-      }
-    })
-    it("Check Invalid date value for dateTime/relativeTime format without error break ", () => {
-      console.log('------------------------------')
-      try {
-        var translated = test('DATETIME_FORMAT', {today: 'XXXXXXXXXX'})
-        assert.ok(true)
-      } catch (e) {
-        logError(e)
-        assert.fail(e.toString())
-      }
-    })
+        }
+      })
+      console.log('Current dictionaries:', M.getDictionaryNames())
+      assert.ok(true)
+    } catch (e) {
+      logError(e)
+      assert.fail(e.toString())
+    }
+  })
+  it("Check Invalid date value for dateTime/relativeTime format without error break ", () => {
+    console.log('------------------------------')
+    try {
+      var translated = test('DATETIME_FORMAT', {today: 'XXXXXXXXXX'})
+      assert.ok(true)
+    } catch (e) {
+      logError(e)
+      assert.fail(e.toString())
+    }
   })
 })
