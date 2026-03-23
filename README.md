@@ -448,6 +448,30 @@ npm test
 
 Tests currently build the package first, then run Mocha with `nyc` coverage.
 
+## Production use
+
+`intl-msg` is usable in real applications today, especially when you want:
+
+- partial dictionaries
+- locale-aware formatting driven by translation data
+- explicit fallback behavior
+- application-controlled dictionary loading
+
+It is a good fit when:
+
+- your app can decide where dictionaries live
+- you want to merge default dictionaries, language packs, and user overrides
+- you want to stay close to native `Intl` behavior
+
+Things to keep in mind:
+
+- dictionary discovery is application-owned
+- the optional `compose` and `loaders` helpers are intentionally small
+- modern runtimes are assumed
+- this is not an ICU MessageFormat replacement
+
+For runtime language switching, prefer composing a fresh dictionary set and creating a fresh `IntlMsg` instance instead of mutating one long-lived instance in place.
+
 ## Optional composition helper
 
 The package also provides an optional composition helper for building one merged dictionary from a priority plan:
