@@ -19,6 +19,12 @@ The loader system should be:
 - optional to use
 - separate from the core engine
 
+The default stance should be:
+
+- path discovery is application-owned
+- the library provides strict, simple default helpers for conventional cases
+- the library never assumes it can discover every custom dictionary automatically
+
 That means applications can still do this:
 
 ```js
@@ -92,6 +98,8 @@ Expected semantics:
 - missing dictionary is not automatically an error
 - the composition step may continue if a plan item is absent
 - hard failures should be rare and explicit
+
+This callback shape is also the escape hatch for applications whose dictionary paths are dynamic, user-controlled, or environment-specific.
 
 ## Proposed helper API
 
@@ -168,6 +176,8 @@ Good when:
 - dictionaries are served over HTTP(S)
 - paths are stable and app-controlled
 
+The library may provide a strict default fetch loader for conventional layouts, but applications should still be able to supply a custom URL resolver.
+
 ### 2. Dynamic import loader
 
 ```js
@@ -200,6 +210,56 @@ Good when:
 
 - the host app already manages dictionary state
 - browser storage is handled outside `intl-msg`
+
+## Recommended built-in helpers
+
+The library can provide small helpers for strict, conventional layouts so that developers do not have to write boilerplate for the simplest cases.
+
+These helpers should stay deliberately narrow.
+
+### `createMemoryLoader(registry)`
+
+For already-loaded dictionary objects.
+
+### `createFetchLoader(options)`
+
+For HTTP(S)-served dictionaries.
+
+Recommended options:
+
+- `resolveUrl(entry)` or strict default URL rules
+- `fetchImpl`
+- `parse`
+
+### `createPathLoader(options)`
+
+For filesystem-oriented environments such as Node.js or Electron.
+
+Recommended options:
+
+- `resolvePath(entry)` or strict default path rules
+- `readFile`
+- `parse`
+
+## Strict default conventions
+
+Built-in helpers should work out of the box only for simple and predictable layouts.
+
+For example, a default fetch loader may assume something like:
+
+```txt
+/dictionaries/{source}/{locale}.json
+```
+
+And a default path loader may assume something like:
+
+```txt
+./dictionaries/{source}/{locale}.json
+```
+
+If an application follows those rules, it should not need much custom code.
+
+If it does not, the app should be able to override resolution through callbacks.
 
 ## Node.js loaders
 

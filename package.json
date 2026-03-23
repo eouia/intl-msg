@@ -15,6 +15,11 @@
       "require": "./dist/cjs/compose.cjs",
       "import": "./dist/esm/compose.js",
       "default": "./dist/esm/compose.js"
+    },
+    "./loaders": {
+      "require": "./dist/cjs/loaders.cjs",
+      "import": "./dist/esm/loaders.js",
+      "default": "./dist/esm/loaders.js"
     }
   },
   "files": [

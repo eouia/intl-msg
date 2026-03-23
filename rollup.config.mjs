@@ -45,6 +45,22 @@ export default [
     plugins: [emitEsmPackageJson],
   },
   {
+    input: 'src/loaders.js',
+    output: {
+      file: 'dist/cjs/loaders.cjs',
+      format: 'cjs',
+      exports: 'named',
+    },
+  },
+  {
+    input: 'src/loaders.js',
+    output: {
+      file: 'dist/esm/loaders.js',
+      format: 'es',
+    },
+    plugins: [emitEsmPackageJson],
+  },
+  {
     input: 'src/main.js',
     output: {
       file: 'dist/browser/intl-msg.js',

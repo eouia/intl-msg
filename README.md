@@ -469,3 +469,32 @@ const dictionaries = await composeDictionaries(
 ```
 
 This helper is intentionally small and optional. It does not replace the core `IntlMsg` API.
+
+## Optional loader helpers
+
+The package also provides optional strict helpers via `intl-msg/loaders`:
+
+```js
+import { createMemoryLoader, createFetchLoader, createPathLoader } from 'intl-msg/loaders'
+```
+
+These helpers are intentionally narrow:
+
+- they work well for simple, conventional layouts
+- they do not try to discover arbitrary custom dictionary locations
+- applications can override URL/path resolution through callbacks
+
+Examples:
+
+```js
+const memoryLoader = createMemoryLoader(registry)
+
+const fetchLoader = createFetchLoader({
+  resolveUrl: ({ locale, source }) => `/dictionaries/${source}/${locale}.json`,
+})
+
+const pathLoader = createPathLoader({
+  resolvePath: ({ locale, source }) => `./dictionaries/${source}/${locale}.json`,
+  readFile: fs.promises.readFile,
+})
+```

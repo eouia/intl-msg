@@ -1,5 +1,6 @@
 const IntlMsg = require('./dist/cjs/main.cjs')
 const composeDictionaries = require('./dist/cjs/compose.cjs').default
+const loaders = require('./dist/cjs/loaders.cjs')
 const assert = require('assert').strict
 const fs = require('fs')
 const vm = require('vm')
@@ -385,6 +386,103 @@ describe(title("4. Variable formatters"), () => {
 })
 
 describe(title("6. Additional coverage"), () => {
+  it("createMemoryLoader loads dictionaries from a strict source/locale registry", async () => {
+    const loader = loaders.createMemoryLoader({
+      default: {
+        en: {
+          en: {
+            translations: {
+              HELLO: 'Hello',
+            },
+          },
+        },
+      },
+    })
+
+    const loaded = await loader({ locale: 'en', source: 'default' })
+
+    assert.deepEqual(loaded, {
+      en: {
+        translations: {
+          HELLO: 'Hello',
+        },
+      },
+    })
+  })
+
+  it("createFetchLoader supports custom URL resolution", async () => {
+    const requests = []
+    const loader = loaders.createFetchLoader({
+      resolveUrl: ({ locale, source }) => `https://example.test/dictionaries/${source}/${locale}.json`,
+      fetchImpl: async (url) => {
+        requests.push(url)
+        return {
+          ok: true,
+          json: async () => ({
+            en: {
+              translations: {
+                HELLO: 'Hello from fetch',
+              },
+            },
+          }),
+        }
+      },
+    })
+
+    const loaded = await loader({ locale: 'en', source: 'default' })
+
+    assert.deepEqual(requests, ['https://example.test/dictionaries/default/en.json'])
+    assert.deepEqual(loaded, {
+      en: {
+        translations: {
+          HELLO: 'Hello from fetch',
+        },
+      },
+    })
+  })
+
+  it("createPathLoader supports custom path resolution", async () => {
+    const paths = []
+    const loader = loaders.createPathLoader({
+      resolvePath: ({ locale, source }) => `/tmp/dictionaries/${source}/${locale}.json`,
+      readFile: async (path) => {
+        paths.push(path)
+        return JSON.stringify({
+          en: {
+            translations: {
+              HELLO: 'Hello from path',
+            },
+          },
+        })
+      },
+    })
+
+    const loaded = await loader({ locale: 'en', source: 'default' })
+
+    assert.deepEqual(paths, ['/tmp/dictionaries/default/en.json'])
+    assert.deepEqual(loaded, {
+      en: {
+        translations: {
+          HELLO: 'Hello from path',
+        },
+      },
+    })
+  })
+
+  it("createPathLoader returns null for missing files", async () => {
+    const loader = loaders.createPathLoader({
+      readFile: async () => {
+        const error = new Error('not found')
+        error.code = 'ENOENT'
+        throw error
+      },
+    })
+
+    const loaded = await loader({ locale: 'en', source: 'default' })
+
+    assert.equal(loaded, null)
+  })
+
   it("composeDictionaries merges partial dictionaries in plan order", async () => {
     const registry = {
       default: {
