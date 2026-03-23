@@ -325,6 +325,33 @@ describe(title("4. Variable formatters"), () => {
 })
 
 describe(title("6. Additional coverage"), () => {
+  it("formatter locale does not leak between calls that share one fallback dictionary", () => {
+    const M2 = new IntlMsg()
+    M2.addDictionary({
+      en: {
+        translations: {
+          PRICE: '{{amount:currency}}',
+        },
+        formatters: {
+          currency: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+          },
+        },
+      },
+    })
+
+    M2.setLocale(['en-US'])
+    const usPrice = M2.message('PRICE', { amount: 1234.5 })
+
+    M2.setLocale(['en-GB'])
+    const gbPrice = M2.message('PRICE', { amount: 1234.5 })
+
+    assert.notEqual(usPrice, gbPrice)
+    assert.equal(usPrice, '$1,234.50')
+    assert.equal(gbPrice, 'US$1,234.50')
+  })
+
   it("legacy CommonJS shim loads the built CommonJS bundle", () => {
     const LegacyIntlMsg = require('./commonjs/main.js')
     const M2 = LegacyIntlMsg.factory({
@@ -395,6 +422,21 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(M2.message('HELLO'), 'Hello')
   })
 
+  it("invalid per-locale dictionary payload is ignored without crashing", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en')
+
+    assert.doesNotThrow(() => {
+      M2.addDictionary({
+        en: null,
+        fr: 123,
+      })
+    })
+
+    assert.equal(M2.getDictionary('en'), null)
+    assert.equal(M2.getDictionary('fr'), null)
+  })
+
   it("Dictionary.getName() returns the canonical locale name", () => {
     M.setLocale(['en-US'])
     M.addDictionary(dict)
@@ -455,6 +497,26 @@ describe(title("6. Additional coverage"), () => {
     // 포매터가 실패해도 크래시 없이, 원본 값으로 치환된 메시지 반환
     const result = M2.message('ERR_MSG', { value: 'fallbackValue' })
     assert.equal(result, 'result is fallbackValue')
+  })
+
+  it("logger configuration is isolated per instance", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+
+    const withLogger = new IntlMsg({ log: logger, verbose: true })
+    withLogger.addDictionary([1, 2, 3])
+
+    const withoutLogger = new IntlMsg()
+    withoutLogger.addDictionary([4, 5, 6])
+
+    assert.equal(logs.length, 1)
+    assert.equal(logs[0][0], 'warn')
+    assert.equal(logs[0][1], 'Invalid dictionary data:')
   })
 })
 

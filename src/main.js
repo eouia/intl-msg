@@ -73,7 +73,7 @@ function applyIntl(obj) {
   )
 }
 
-var _log = {
+const DEFAULT_LOGGER = {
   log: () => {},
   info: () => {},
   warn: () => {},
@@ -112,6 +112,7 @@ class IntlMsg {
   #dictionaries = new Map()
   #locales = []
   #formatters = {}
+  #log = DEFAULT_LOGGER
 
   constructor ({ log = null, intlPolyfill = null, verbose = false } = {}) {
     applyIntl(intlPolyfill)
@@ -130,7 +131,7 @@ class IntlMsg {
   setLogger (log = null, verbose = false) {
     if (!log) return
     const required = ['log', 'info', 'warn', 'error']
-    if (required.every((m) => { return log.hasOwnProperty(m)}) && verbose) _log = log
+    if (required.every((m) => { return log.hasOwnProperty(m)}) && verbose) this.#log = log
   }
 
   getLocale () {
@@ -162,7 +163,7 @@ class IntlMsg {
 
   addDictionary(json = {}) {
     if (!isPlainObject(json)) {
-      _log.warn('Invalid dictionary data:', toShortStr(json))
+      this.#log.warn('Invalid dictionary data:', toShortStr(json))
       return this
     }
     Object.keys(json).forEach((locale) => {
@@ -172,7 +173,13 @@ class IntlMsg {
     return this
   }
 
-  #mergeDictionary(locale, {translations = {}, formatters = {}}) {
+  #mergeDictionary(locale, dictData = {}) {
+    if (!isPlainObject(dictData)) {
+      this.#log.warn(`Invalid dictionary entry for locale '${locale}':`, toShortStr(dictData))
+      return this
+    }
+
+    var {translations = {}, formatters = {}} = dictData
     var lc = normalizeToBcp47(locale)
     if (!lc) return this
     var dictionary = this.getDictionary(lc)
@@ -256,16 +263,17 @@ class IntlMsg {
         var placeholder = i[0]
         var groups = i?.groups
         if (groups.f) {
-          var formatterConfig = this.#dictionaries.get(dictionaryName)?.getFormatter(groups.f)
+          var formatterDefinition = this.#dictionaries.get(dictionaryName)?.getFormatter(groups.f)
+          var formatterConfig = isPlainObject(formatterDefinition) ? { ...formatterDefinition } : formatterDefinition
           var format = formatterConfig?.format
           if (typeof this.#formatters[format] === 'function') {
             try {
               formatterConfig.value = val
-              formatterConfig.locales ||= originalLocale
+              if (formatterConfig.locales == null) formatterConfig.locales = originalLocale
               val = this.#formatters[format](formatterConfig) ?? {}
             } catch (e) {
-              _log.error (`Formatter '${format}' call error.`)
-              _log.error({
+              this.#log.error (`Formatter '${format}' call error.`)
+              this.#log.error({
                 key: key,
                 formatterConfig: formatterConfig,
               })
