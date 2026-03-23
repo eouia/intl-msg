@@ -1,5 +1,7 @@
 const IntlMsg = require('./dist/cjs/main.cjs')
 const assert = require('assert').strict
+const fs = require('fs')
+const vm = require('vm')
 
 
 const dict = {
@@ -325,6 +327,40 @@ describe(title("4. Variable formatters"), () => {
 })
 
 describe(title("6. Additional coverage"), () => {
+  it("browser global build exports IntlMsg on the global object", async () => {
+    const source = fs.readFileSync('./dist/browser/intl-msg.js', 'utf8')
+    const context = {
+      console,
+      Intl,
+      Date,
+      window: {},
+    }
+
+    vm.createContext(context)
+    vm.runInContext(source, context)
+
+    const BrowserIntlMsg = context.IntlMsg
+    const result = vm.runInContext(`
+      (() => {
+        const msg = IntlMsg.factory({
+          locales: 'en',
+          dictionaries: {
+            en: {
+              translations: {
+                HELLO: 'Hello from browser global build',
+              },
+            },
+          },
+        })
+
+        return msg.message('HELLO')
+      })()
+    `, context)
+
+    assert.equal(typeof BrowserIntlMsg, 'function')
+    assert.equal(result, 'Hello from browser global build')
+  })
+
   it("formatter locale does not leak between calls that share one fallback dictionary", () => {
     const M2 = new IntlMsg()
     M2.addDictionary({

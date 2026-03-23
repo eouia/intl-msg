@@ -1,6 +1,6 @@
 # intl-msg
 
-Native `Intl`-based i18n message formatting for Node.js and browsers, with no runtime dependencies.
+Native `Intl`-based i18n message formatting for modern Node.js, browsers, and Electron, with no runtime dependencies.
 
 ## Status
 
@@ -11,6 +11,48 @@ The package now builds from a single source file and publishes both CommonJS and
 - Source of truth: `src/main.js`
 
 Legacy files such as `commonjs/main.js`, `esm/main.js`, and the root `main.js` are now thin compatibility shims. Package consumers should rely on the published package entry points.
+
+## Runtime requirements
+
+This library is designed for modern JavaScript runtimes with full `Intl` support. It is not a legacy-browser compatibility build.
+
+Minimum practical requirements:
+
+- Node.js: 16+ recommended
+- Browsers: native ESM support and modern class features, including private fields
+- Electron: a modern Electron release whose bundled Chromium/Node versions satisfy the browser and Node requirements above
+
+Required built-in `Intl` APIs:
+
+- `Intl.getCanonicalLocales`
+- `Intl.PluralRules`
+- `Intl.DateTimeFormat`
+- `Intl.RelativeTimeFormat`
+- `Intl.ListFormat`
+- `Intl.NumberFormat`
+
+Required JavaScript features in the runtime:
+
+- ES modules or a bundler that can consume them
+- private class fields
+- optional chaining
+- nullish coalescing
+
+If your target runtime does not provide the required `Intl` APIs, you must inject a compatible `intlPolyfill` when constructing `IntlMsg`.
+
+## Environment support
+
+Supported in practice means:
+
+- Node.js: works via the published CommonJS and ESM package entry points
+- Browsers: works in modern browsers through native ESM, a bundler, or the browser global build
+- Electron: works when the embedded Node/Chromium runtime provides the required `Intl` APIs and language features
+
+Not currently provided:
+
+- a legacy ES5 build
+- a UMD or IIFE browser bundle
+- automatic polyfills for missing `Intl` features
 
 ## Install
 
@@ -56,6 +98,30 @@ msg.addDictionary({
 
 console.log(msg.message('HELLO', { name: 'Taylor' }))
 ```
+
+### Browser `<script>`
+
+For modern browsers, the package also ships a browser global build at `dist/browser/intl-msg.js`.
+
+```html
+<script src="./dist/browser/intl-msg.js"></script>
+<script>
+  const msg = IntlMsg.factory({
+    locales: ['en-US', 'en'],
+    dictionaries: {
+      en: {
+        translations: {
+          HELLO: 'Hello, {{name}}.',
+        },
+      },
+    },
+  })
+
+  console.log(msg.message('HELLO', { name: 'Taylor' }))
+</script>
+```
+
+This build is intended for modern browsers. It is not a transpiled legacy-browser build.
 
 ## Dictionary format
 

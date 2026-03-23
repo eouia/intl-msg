@@ -28,4 +28,12 @@ export default [
     },
     plugins: [emitEsmPackageJson],
   },
+  {
+    input: 'src/main.js',
+    output: {
+      file: 'dist/browser/intl-msg.js',
+      format: 'iife',
+      name: 'IntlMsg',
+    },
+  },
 ]
