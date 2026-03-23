@@ -92,6 +92,19 @@ Candidate improvements:
 - better handling of script/region subtags
 - clearer future path for locale-aware option handling
 
+Guardrails for this step:
+
+- preserve the library's forgiving behavior for common locale input mistakes
+- continue accepting inputs such as `en_US` by normalizing them before validation
+- avoid turning previously tolerated locale input into hard failures unless clearly invalid
+- prefer internal correctness improvements over user-visible behavior changes
+
+Settled behavior:
+
+- use `Intl.Locale` when available for internal locale metadata
+- preserve compatibility-friendly input normalization
+- compute fallback chains from locale base names instead of extension-bearing tags
+
 ## Explicitly out of scope for now
 
 - legacy-browser transpiled build
@@ -103,4 +116,4 @@ These may be revisited later after the core formatter roadmap is complete.
 
 ## Current decision
 
-Step 4 is in progress: locale/options validation.
+Step 5 is in progress: `Intl.Locale`-based internal cleanup with compatibility-first behavior.

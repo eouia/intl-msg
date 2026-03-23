@@ -40,6 +40,11 @@ Required JavaScript features in the runtime:
 
 If your target runtime does not provide the required `Intl` APIs, you must inject a compatible `intlPolyfill` when constructing `IntlMsg`.
 
+Locale input remains compatibility-friendly:
+
+- common non-BCP47 separators such as `en_US` are normalized to `en-US`
+- fallback lookup uses the locale base name, so extension subtags like `en-US-u-ca-buddhist` still fall back through `en-US` and `en`
+
 ## Environment support
 
 Supported in practice means:

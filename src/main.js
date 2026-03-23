@@ -6,16 +6,45 @@ if (typeof Intl !== 'undefined') {
 }
 
 
-function normalizeToBcp47 (locale, func = ()=>{}) {
-  var lc = locale.replace(/_/g, '-') // For non BCP47 format
+function sanitizeLocaleInput(locale) {
+  if (typeof locale !== 'string') return null
+  return locale.replace(/_/g, '-')
+}
+
+function createLocaleInfo(locale) {
+  const sanitizedLocale = sanitizeLocaleInput(locale)
+  if (!sanitizedLocale) return null
+
   try {
-    lc = _intl.getCanonicalLocales(lc)
-    if (typeof func === 'function') func(lc)
+    const canonicalLocales = _intl.getCanonicalLocales(sanitizedLocale)
+    const canonicalLocale = Array.isArray(canonicalLocales) ? canonicalLocales[0] : canonicalLocales
+    const localeInfo = {
+      original: locale,
+      sanitized: sanitizedLocale,
+      canonical: canonicalLocale,
+      baseName: canonicalLocale,
+    }
+
+    if (typeof _intl.Locale === 'function') {
+      const intlLocale = new _intl.Locale(canonicalLocale)
+      localeInfo.baseName = intlLocale.baseName || canonicalLocale
+      localeInfo.language = intlLocale.language
+      localeInfo.script = intlLocale.script
+      localeInfo.region = intlLocale.region
+    }
+
+    return localeInfo
   } catch (e) {
-    var error = new Error(`${lc} is not a valid locale name.`)
     return null
   }
-  return (Array.isArray(lc)) ? lc[0] : lc
+}
+
+function normalizeToBcp47 (locale, func = ()=>{}) {
+  const localeInfo = createLocaleInfo(locale)
+  if (!localeInfo) return null
+  const canonicalLocales = [localeInfo.canonical]
+  if (typeof func === 'function') func(canonicalLocales)
+  return localeInfo.canonical
 }
 
 function isPlainObject(value) {
@@ -104,7 +133,10 @@ function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
 function toPossibleLocales(locales = []) {
   if (!(Array.isArray(locales) && locales.length > 0)) return []
   return locales.reduce((result, locale) => {
-    var lcParts = locale.split('-')
+    const localeInfo = createLocaleInfo(locale)
+    if (!localeInfo) return result
+
+    var lcParts = localeInfo.baseName.split('-')
     while(lcParts.length > 0) {
       var search = lcParts.join('-')
       if (!result.includes(search)) result.push(search)
@@ -117,7 +149,7 @@ function toPossibleLocales(locales = []) {
 function applyIntl(obj) {
   const required = [
     'getCanonicalLocales', 'PluralRules', 'DateTimeFormat', 'RelativeTimeFormat',
-    'ListFormat', 'NumberFormat'
+    'ListFormat', 'NumberFormat', 'Locale'
   ]
   if (
     obj !== null && typeof obj === 'object'

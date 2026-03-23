@@ -530,6 +530,7 @@ describe(title("6. Additional coverage"), () => {
       RelativeTimeFormat: Intl.RelativeTimeFormat,
       ListFormat: Intl.ListFormat,
       NumberFormat: Intl.NumberFormat,
+      Locale: Intl.Locale,
     }
 
     const M2 = new IntlMsg({
@@ -580,6 +581,7 @@ describe(title("6. Additional coverage"), () => {
         formatRange = undefined
       },
       DurationFormat: Intl.DurationFormat,
+      Locale: Intl.Locale,
     }
 
     const M2 = new IntlMsg({
@@ -630,6 +632,7 @@ describe(title("6. Additional coverage"), () => {
       ListFormat: Intl.ListFormat,
       NumberFormat: Intl.NumberFormat,
       DurationFormat: Intl.DurationFormat,
+      Locale: Intl.Locale,
     }
 
     const M2 = new IntlMsg({
@@ -680,6 +683,7 @@ describe(title("6. Additional coverage"), () => {
       ListFormat: Intl.ListFormat,
       NumberFormat: Intl.NumberFormat,
       DurationFormat: Intl.DurationFormat,
+      Locale: Intl.Locale,
     }
 
     const M2 = new IntlMsg({
@@ -871,6 +875,24 @@ describe(title("6. Additional coverage"), () => {
     M2.addLocale('en-GB')
     M2.setLocale(['en-GB'])
     assert.equal(M2.message('FALLBACK_KEY'), 'found in en')
+  })
+
+  it("locale normalization remains forgiving for common non-BCP47 separators", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale(['en_US', 'zh_hant_tw'])
+    assert.deepEqual(M2.getLocale(), ['en-US', 'zh-Hant-TW'])
+  })
+
+  it("locale fallback ignores Unicode extension subtags when searching base dictionaries", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US-u-ca-buddhist')
+    M2.addDictionary({
+      'en-US': { translations: { HELLO: 'found in en-US' } },
+      'en': { translations: { HI: 'found in en' } },
+    })
+
+    assert.equal(M2.message('HELLO'), 'found in en-US')
+    assert.equal(M2.message('HI'), 'found in en')
   })
 
   it("formatter error: falls back to original value, no crash", () => {
