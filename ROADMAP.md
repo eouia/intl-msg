@@ -114,15 +114,6 @@ Settled behavior:
 
 These may be revisited later after the core formatter roadmap is complete.
 
-## Recent follow-up
+## Current decision
 
-The `formatToParts()` follow-up was implemented in the smallest useful form:
-
-- `number`, `numberRange`, `dateTime`, and `dateTimeRange` can pass `parts` into a dictionary-level `customFormatter`
-- the main `message()` API still returns strings and remains the primary public output
-- no separate `...Parts` formatter family or `messageParts()` API was added
-- this keeps parts support available for advanced post-processing without turning structured parts into the library's main output model
-
-Reference:
-
-- prior parts-oriented work in [`MMRIZE/MMM-CustomElementTime`](https://github.com/MMRIZE/MMM-CustomElementTime) helped validate the idea of post-processing Intl parts rather than exposing them as the primary end-user API
+Step 5 is in progress: `Intl.Locale`-based internal cleanup with compatibility-first behavior.

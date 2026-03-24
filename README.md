@@ -351,48 +351,6 @@ Currently validated where applicable:
 
 If an option is invalid, the formatter warns through the configured logger and falls back gracefully instead of relying only on a constructor exception.
 
-## Parts-aware post-processing
-
-When dictionaries are defined in JavaScript, built-in Intl-backed formatters can use a `customFormatter` function for final string post-processing.
-
-Supported built-in formatters currently pass `parts` when available:
-
-- `number`
-- `numberRange`
-- `dateTime`
-- `dateTimeRange`
-
-The callback receives a context object including:
-
-- `value`: the built-in formatter's default string result
-- `parts`: the result of `formatToParts()` or `formatRangeToParts()` when supported
-- `rawValue`: the original unformatted input value
-
-Example:
-
-```js
-msg.addDictionary({
-  en: {
-    translations: {
-      TOTAL: 'Total: {{amount:currency}}',
-    },
-    formatters: {
-      currency: {
-        format: 'number',
-        options: { style: 'currency', currency: 'USD' },
-        customFormatter: ({ value, parts }) => {
-          const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
-          return `${value} [${currency}]`
-        },
-      },
-    },
-  },
-})
-
-msg.message('TOTAL', { amount: 1234.5 })
-// => 'Total: $1,234.50 [$]'
-```
-
 ## Custom formatters
 
 Register a formatter by name, then reference it from dictionary formatter definitions:
