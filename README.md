@@ -353,7 +353,7 @@ If an option is invalid, the formatter warns through the configured logger and f
 
 ## Parts-aware post-processing
 
-When dictionaries are defined in JavaScript, built-in Intl-backed formatters can use a registered formatter as a final post-processing step.
+When dictionaries are defined in JavaScript, built-in Intl-backed formatters can use a `customFormatter` function for final string post-processing.
 
 Supported built-in formatters currently pass `parts` when available:
 
@@ -362,7 +362,7 @@ Supported built-in formatters currently pass `parts` when available:
 - `dateTime`
 - `dateTimeRange`
 
-The registered formatter receives a context object including:
+The callback receives a context object including:
 
 - `value`: the built-in formatter's default string result
 - `parts`: the result of `formatToParts()` or `formatRangeToParts()` when supported
@@ -371,11 +371,6 @@ The registered formatter receives a context object including:
 Example:
 
 ```js
-msg.registerFormatter('withCurrencySymbol', ({ value, parts }) => {
-  const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
-  return `${value} [${currency}]`
-})
-
 msg.addDictionary({
   en: {
     translations: {
@@ -385,7 +380,10 @@ msg.addDictionary({
       currency: {
         format: 'number',
         options: { style: 'currency', currency: 'USD' },
-        customFormatter: 'withCurrencySymbol',
+        customFormatter: ({ value, parts }) => {
+          const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
+          return `${value} [${currency}]`
+        },
       },
     },
   },
