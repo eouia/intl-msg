@@ -1172,6 +1172,31 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(M2.message('ETA', { value: 3 }), 'ETA: in 3 days|true|day')
   })
 
+  it("custom formatters can also use one postFormat stage", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en')
+    M2.registerFormatter('capitalize', ({ value }) => {
+      const text = value == null ? '' : String(value)
+      return text ? text[0].toUpperCase() + text.slice(1).toLowerCase() : text
+    })
+    M2.registerFormatter('wrap', ({ value, format }) => `[${format}:${value}]`)
+    M2.addDictionary({
+      en: {
+        translations: {
+          TITLE: 'Title: {{name:titleCase}}',
+        },
+        formatters: {
+          titleCase: {
+            format: 'capitalize',
+            postFormat: 'wrap',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TITLE', { name: 'tAYLOR' }), 'Title: [capitalize:Taylor]')
+  })
+
   it("postFormat errors fall back to the built-in formatter result", () => {
     const logs = []
     const logger = {

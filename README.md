@@ -353,7 +353,8 @@ If an option is invalid, the formatter warns through the configured logger and f
 
 ## Parts-aware post-processing
 
-Intl-backed built-in formatters can optionally pass their formatted result through a registered post-formatter.
+Any formatter can optionally pass its result through one registered post-formatter as a second stage.
+There is no recursive formatter pipeline: `format` runs first, then `postFormat` may run once.
 
 Supported built-in formatters currently provide `parts` when available:
 
@@ -370,6 +371,8 @@ The post-formatter receives a context object including:
 - `parts`: the result of `formatToParts()` or `formatRangeToParts()` when supported
 - `rawValue`: the original unformatted input value
 - `format`: the built-in formatter name that ran first
+
+For custom primary formatters, `postFormat` still works, but `parts` is only populated when the first stage formatter collected them.
 
 Example:
 
@@ -495,7 +498,7 @@ Formats and returns the final message string.
 
 Registers a custom formatter callback.
 
-Dictionary formatter configs for Intl-backed built-ins may also set `postFormat` to the name of a registered formatter.
+Dictionary formatter configs may also set `postFormat` to the name of a registered formatter. Only two stages are supported: `format`, then `postFormat`.
 
 ## Development
 

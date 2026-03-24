@@ -123,6 +123,8 @@ Step 5 is in progress: `Intl.Locale`-based internal cleanup with compatibility-f
 `formatToParts()` support should stay a post-processing feature, not a new primary output API.
 
 - `format` remains the primary formatter selector
-- `postFormat` can run after Intl-backed built-in formatters such as `list`, `number`, `numberRange`, `dateTime`, `dateTimeRange`, and `relativeTime`
+- `postFormat` is a single optional second stage after any formatter
+- built-in Intl-backed formatters such as `list`, `number`, `numberRange`, `dateTime`, `dateTimeRange`, and `relativeTime` can additionally provide `parts`
 - registered post-formatters can receive `{ value, parts, rawValue, locales, options, format }`
 - the main `message()` API should continue returning strings
+- only two stages are supported for now: `format` then `postFormat`

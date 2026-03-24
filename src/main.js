@@ -130,6 +130,11 @@ function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
   return { valid: true, options }
 }
 
+function setPostFormatContext(config, context) {
+  if (!isPlainObject(config)) return
+  config.__postFormatContext = context
+}
+
 function applyPostFormat(postFormat, context, fallbackValue, log, formatName, formatters = {}) {
   if (typeof postFormat !== 'string') return fallbackValue
   const transform = formatters?.[postFormat]
@@ -375,9 +380,25 @@ class IntlMsg {
           var format = formatterConfig?.format
           if (typeof this.#formatters[format] === 'function') {
             try {
+              var rawValue = val
               formatterConfig.value = val
               if (formatterConfig.locales == null) formatterConfig.locales = originalLocale
               val = this.#formatters[format](formatterConfig) ?? {}
+              val = applyPostFormat(
+                formatterConfig?.postFormat,
+                formatterConfig?.__postFormatContext ?? {
+                  value: val,
+                  parts: undefined,
+                  rawValue,
+                  locales: formatterConfig.locales,
+                  options: formatterConfig.options,
+                  format,
+                },
+                val,
+                this.#log,
+                format,
+                this.#formatters
+              )
             } catch (e) {
               this.#log.error (`Formatter '${format}' call error.`)
               this.#log.error({
@@ -416,37 +437,28 @@ class IntlMsg {
       var plural = pluralRules.selectRange(value.start, value.end);
       return rules?.[plural] ?? rules?.other ?? ''
     })
-    this.registerFormatter('list', ({locales, value, options = {}, postFormat} = {}) => {
+    this.registerFormatter('list', (formatterConfig = {}) => {
+      var {locales, value, options = {}} = formatterConfig
       if (!Array.isArray(value)) return value?.toString() || value
       var formatter = new _intl.ListFormat(locales, options)
       var ret = formatter.format(value)
       var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(value) : undefined
-      return applyPostFormat(
-        postFormat,
-        { value: ret, parts, rawValue: value, locales, options, format: 'list' },
-        ret,
-        this.#log,
-        'list',
-        this.#formatters
-      )
+      setPostFormatContext(formatterConfig, { value: ret, parts, rawValue: value, locales, options, format: 'list' })
+      return ret
     })
-    this.registerFormatter('number', ({locales, value, options = {}, postFormat} = {}) => {
+    this.registerFormatter('number', (formatterConfig = {}) => {
+      var {locales, value, options = {}} = formatterConfig
       if (isNaN(value)) return value?.toString() || value
       var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
       if (!valid) return value?.toString() || value
       var formatter = new _intl.NumberFormat(locales, validatedOptions)
       var ret = formatter.format(value)
       var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(value) : undefined
-      return applyPostFormat(
-        postFormat,
-        { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'number' },
-        ret,
-        this.#log,
-        'number',
-        this.#formatters
-      )
+      setPostFormatContext(formatterConfig, { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'number' })
+      return ret
     })
-    this.registerFormatter('numberRange', ({locales, value, options = {}, postFormat} = {}) => {
+    this.registerFormatter('numberRange', (formatterConfig = {}) => {
+      var {locales, value, options = {}} = formatterConfig
       if (!isRangeObject(value)) return value?.toString() || value
       if (isNaN(value.start) || isNaN(value.end)) return `${value.start} - ${value.end}`
 
@@ -460,20 +472,15 @@ class IntlMsg {
       }
       var ret = formatter.formatRange(value.start, value.end)
       var parts = typeof formatter.formatRangeToParts === 'function' ? formatter.formatRangeToParts(value.start, value.end) : undefined
-      return applyPostFormat(
-        postFormat,
-        { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'numberRange' },
-        ret,
-        this.#log,
-        'numberRange',
-        this.#formatters
-      )
+      setPostFormatContext(formatterConfig, { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'numberRange' })
+      return ret
     })
     this.registerFormatter('select', function({locales, value, options}) {
       if (options?.[value]) return options?.[value]
       return options?.["other"] ?? value?.toString() ?? value
     })
-    this.registerFormatter('dateTime', ({locales, value, options = {}, postFormat}) => {
+    this.registerFormatter('dateTime', (formatterConfig = {}) => {
+      var {locales, value, options = {}} = formatterConfig
       var date = toDate(value)
       if (!(date instanceof Date)) return value
       var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
@@ -481,16 +488,11 @@ class IntlMsg {
       var formatter = new _intl.DateTimeFormat(locales, validatedOptions)
       var ret = formatter.format(date)
       var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(date) : undefined
-      return applyPostFormat(
-        postFormat,
-        { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'dateTime' },
-        ret,
-        this.#log,
-        'dateTime',
-        this.#formatters
-      )
+      setPostFormatContext(formatterConfig, { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'dateTime' })
+      return ret
     })
-    this.registerFormatter('dateTimeRange', ({locales, value, options = {}, postFormat}) => {
+    this.registerFormatter('dateTimeRange', (formatterConfig = {}) => {
+      var {locales, value, options = {}} = formatterConfig
       if (!isRangeObject(value)) return value?.toString() || value
 
       var start = toDate(value.start)
@@ -508,16 +510,11 @@ class IntlMsg {
       }
       var ret = formatter.formatRange(start, end)
       var parts = typeof formatter.formatRangeToParts === 'function' ? formatter.formatRangeToParts(start, end) : undefined
-      return applyPostFormat(
-        postFormat,
-        { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'dateTimeRange' },
-        ret,
-        this.#log,
-        'dateTimeRange',
-        this.#formatters
-      )
+      setPostFormatContext(formatterConfig, { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'dateTimeRange' })
+      return ret
     })
-    this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds', postFormat}) => {
+    this.registerFormatter('relativeTime', (formatterConfig = {}) => {
+      var {locales, value, options = {}, unit='seconds'} = formatterConfig
       if (isNaN(value)) return value?.toString() || value
       var normalizedUnit = normalizeRelativeTimeUnit(unit)
       var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
@@ -532,14 +529,8 @@ class IntlMsg {
       var formatter = new _intl.RelativeTimeFormat(locales, validatedOptions)
       var ret = formatter.format(value, normalizedUnit)
       var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(value, normalizedUnit) : undefined
-      return applyPostFormat(
-        postFormat,
-        { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'relativeTime', unit: normalizedUnit },
-        ret,
-        this.#log,
-        'relativeTime',
-        this.#formatters
-      )
+      setPostFormatContext(formatterConfig, { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'relativeTime', unit: normalizedUnit })
+      return ret
     })
     this.registerFormatter('duration', ({locales, value, options = {}}) => {
       if (typeof _intl.DurationFormat !== 'function') {
