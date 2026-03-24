@@ -1047,6 +1047,116 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(warning[2], 'not-a-real-unit')
   })
 
+  it("number formatter customFormatter receives formatted value and parts", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.addDictionary({
+      en: {
+        translations: {
+          TOTAL: 'Total: {{amount:currency}}',
+        },
+        formatters: {
+          currency: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+            customFormatter: ({ value, parts }) => {
+              const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
+              return `${value} [${currency}]`
+            },
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TOTAL', { amount: 1234.5 }), 'Total: $1,234.50 [$]')
+  })
+
+  it("dateTime formatter customFormatter receives formatted value and parts", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.addDictionary({
+      en: {
+        translations: {
+          TODAY: 'Today: {{today:clock}}',
+        },
+        formatters: {
+          clock: {
+            format: 'dateTime',
+            options: { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' },
+            customFormatter: ({ parts }) => {
+              const hour = parts.find((part) => part.type === 'hour')?.value ?? ''
+              const minute = parts.find((part) => part.type === 'minute')?.value ?? ''
+              const dayPeriod = parts.find((part) => part.type === 'dayPeriod')?.value ?? ''
+              return `${hour}:${minute} ${dayPeriod}`.trim()
+            },
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TODAY', { today: '2026-03-24T15:45:00Z' }), 'Today: 3:45 PM')
+  })
+
+  it("range formatters customFormatter receive formatted value and parts", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.addDictionary({
+      en: {
+        translations: {
+          BUDGET: 'Budget: {{amount:budget}}',
+          EVENT: 'Event: {{period:schedule}}',
+        },
+        formatters: {
+          budget: {
+            format: 'numberRange',
+            options: { style: 'currency', currency: 'USD' },
+            customFormatter: ({ value, parts }) => `${value} (${Array.isArray(parts)})`,
+          },
+          schedule: {
+            format: 'dateTimeRange',
+            options: { month: 'short', day: 'numeric', timeZone: 'UTC' },
+            customFormatter: ({ value, parts }) => `${value} (${Array.isArray(parts)})`,
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('BUDGET', { amount: { start: 1200, end: 3400 } }), 'Budget: $1,200.00 – $3,400.00 (true)')
+    assert.equal(M2.message('EVENT', { period: { start: '2026-03-23', end: '2026-03-25' } }), 'Event: Mar 23 – 25 (true)')
+  })
+
+  it("customFormatter errors fall back to the built-in formatter result", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const M2 = new IntlMsg({ log: logger, verbose: true })
+    M2.addLocale('en-US')
+    M2.addDictionary({
+      en: {
+        translations: {
+          TOTAL: 'Total: {{amount:currency}}',
+        },
+        formatters: {
+          currency: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+            customFormatter: () => {
+              throw new Error('broken custom formatter')
+            },
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TOTAL', { amount: 1234.5 }), 'Total: $1,234.50')
+    assert.equal(logs[0][0], 'error')
+    assert.equal(logs[0][1], "Formatter 'number' customFormatter error.")
+  })
+
   it("invalid per-locale dictionary payload is ignored without crashing", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en')

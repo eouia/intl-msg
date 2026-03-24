@@ -130,6 +130,19 @@ function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
   return { valid: true, options }
 }
 
+function applyCustomFormatterTransform(customFormatter, context, fallbackValue, log, formatName) {
+  if (typeof customFormatter !== 'function') return fallbackValue
+  try {
+    return customFormatter(context) ?? fallbackValue
+  } catch (e) {
+    log.error(`Formatter '${formatName}' customFormatter error.`)
+    log.error({
+      formatterConfig: context,
+    })
+    return fallbackValue
+  }
+}
+
 function toPossibleLocales(locales = []) {
   if (!(Array.isArray(locales) && locales.length > 0)) return []
   return locales.reduce((result, locale) => {
@@ -404,14 +417,22 @@ class IntlMsg {
       if (!Array.isArray(value)) return value?.toString() || value
       return new _intl.ListFormat(locales, options).format(value)
     })
-    this.registerFormatter('number', ({locales, value, options = {}} = {}) => {
+    this.registerFormatter('number', ({locales, value, options = {}, customFormatter} = {}) => {
       if (isNaN(value)) return value?.toString() || value
       var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
       if (!valid) return value?.toString() || value
-      var ret = new _intl.NumberFormat(locales, validatedOptions).format(value)
-      return ret
+      var formatter = new _intl.NumberFormat(locales, validatedOptions)
+      var ret = formatter.format(value)
+      var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(value) : undefined
+      return applyCustomFormatterTransform(
+        customFormatter,
+        { value: ret, parts, locales, options: validatedOptions, rawValue: value },
+        ret,
+        this.#log,
+        'number'
+      )
     })
-    this.registerFormatter('numberRange', ({locales, value, options = {}} = {}) => {
+    this.registerFormatter('numberRange', ({locales, value, options = {}, customFormatter} = {}) => {
       if (!isRangeObject(value)) return value?.toString() || value
       if (isNaN(value.start) || isNaN(value.end)) return `${value.start} - ${value.end}`
 
@@ -423,20 +444,37 @@ class IntlMsg {
         this.#log.warn("Formatter 'numberRange' requires Intl.NumberFormat.prototype.formatRange support.")
         return `${formatter.format(value.start)} - ${formatter.format(value.end)}`
       }
-      return formatter.formatRange(value.start, value.end)
+      var ret = formatter.formatRange(value.start, value.end)
+      var parts = typeof formatter.formatRangeToParts === 'function' ? formatter.formatRangeToParts(value.start, value.end) : undefined
+      return applyCustomFormatterTransform(
+        customFormatter,
+        { value: ret, parts, locales, options: validatedOptions, rawValue: value },
+        ret,
+        this.#log,
+        'numberRange'
+      )
     })
     this.registerFormatter('select', function({locales, value, options}) {
       if (options?.[value]) return options?.[value]
       return options?.["other"] ?? value?.toString() ?? value
     })
-    this.registerFormatter('dateTime', ({locales, value, options = {}}) => {
+    this.registerFormatter('dateTime', ({locales, value, options = {}, customFormatter}) => {
       var date = toDate(value)
       if (!(date instanceof Date)) return value
       var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
       if (!valid) return value
-      return new _intl.DateTimeFormat(locales, validatedOptions).format(date)
+      var formatter = new _intl.DateTimeFormat(locales, validatedOptions)
+      var ret = formatter.format(date)
+      var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(date) : undefined
+      return applyCustomFormatterTransform(
+        customFormatter,
+        { value: ret, parts, locales, options: validatedOptions, rawValue: value },
+        ret,
+        this.#log,
+        'dateTime'
+      )
     })
-    this.registerFormatter('dateTimeRange', ({locales, value, options = {}}) => {
+    this.registerFormatter('dateTimeRange', ({locales, value, options = {}, customFormatter}) => {
       if (!isRangeObject(value)) return value?.toString() || value
 
       var start = toDate(value.start)
@@ -452,7 +490,15 @@ class IntlMsg {
         this.#log.warn("Formatter 'dateTimeRange' requires Intl.DateTimeFormat.prototype.formatRange support.")
         return `${formatter.format(start)} - ${formatter.format(end)}`
       }
-      return formatter.formatRange(start, end)
+      var ret = formatter.formatRange(start, end)
+      var parts = typeof formatter.formatRangeToParts === 'function' ? formatter.formatRangeToParts(start, end) : undefined
+      return applyCustomFormatterTransform(
+        customFormatter,
+        { value: ret, parts, locales, options: validatedOptions, rawValue: value },
+        ret,
+        this.#log,
+        'dateTimeRange'
+      )
     })
     this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds'}) => {
       if (isNaN(value)) return value?.toString() || value
