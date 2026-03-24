@@ -351,6 +351,51 @@ Currently validated where applicable:
 
 If an option is invalid, the formatter warns through the configured logger and falls back gracefully instead of relying only on a constructor exception.
 
+## Parts-aware post-processing
+
+Intl-backed built-in formatters can optionally pass their formatted result through a registered post-formatter.
+
+Supported built-in formatters currently provide `parts` when available:
+
+- `number`
+- `numberRange`
+- `dateTime`
+- `dateTimeRange`
+
+The post-formatter receives a context object including:
+
+- `value`: the built-in formatter's default string result
+- `parts`: the result of `formatToParts()` or `formatRangeToParts()` when supported
+- `rawValue`: the original unformatted input value
+- `format`: the built-in formatter name that ran first
+
+Example:
+
+```js
+msg.registerFormatter('markCurrency', ({ value, parts }) => {
+  const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
+  return `${value} [${currency}]`
+})
+
+msg.addDictionary({
+  en: {
+    translations: {
+      TOTAL: 'Total: {{amount:price}}',
+    },
+    formatters: {
+      price: {
+        format: 'number',
+        options: { style: 'currency', currency: 'USD' },
+        postFormat: 'markCurrency',
+      },
+    },
+  },
+})
+
+msg.message('TOTAL', { amount: 1234.5 })
+// => 'Total: $1,234.50 [$]'
+```
+
 ## Custom formatters
 
 Register a formatter by name, then reference it from dictionary formatter definitions:

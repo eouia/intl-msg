@@ -1047,6 +1047,120 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(warning[2], 'not-a-real-unit')
   })
 
+  it("number formatter can hand formatted value and parts to postFormat", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.registerFormatter('markCurrency', ({ value, parts }) => {
+      const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
+      return `${value} [${currency}]`
+    })
+    M2.addDictionary({
+      en: {
+        translations: {
+          TOTAL: 'Total: {{amount:price}}',
+        },
+        formatters: {
+          price: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+            postFormat: 'markCurrency',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TOTAL', { amount: 1234.5 }), 'Total: $1,234.50 [$]')
+  })
+
+  it("dateTime formatter can hand formatted value and parts to postFormat", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.registerFormatter('clockParts', ({ parts }) => {
+      const hour = parts.find((part) => part.type === 'hour')?.value ?? ''
+      const minute = parts.find((part) => part.type === 'minute')?.value ?? ''
+      const dayPeriod = parts.find((part) => part.type === 'dayPeriod')?.value ?? ''
+      return `${hour}:${minute} ${dayPeriod}`.trim()
+    })
+    M2.addDictionary({
+      en: {
+        translations: {
+          TODAY: 'Today: {{today:clock}}',
+        },
+        formatters: {
+          clock: {
+            format: 'dateTime',
+            options: { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' },
+            postFormat: 'clockParts',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TODAY', { today: '2026-03-24T15:45:00Z' }), 'Today: 3:45 PM')
+  })
+
+  it("range formatters can hand formatted value and parts to postFormat", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.registerFormatter('markParts', ({ value, parts, format }) => `${format}:${value}:${Array.isArray(parts)}`)
+    M2.addDictionary({
+      en: {
+        translations: {
+          BUDGET: 'Budget: {{amount:budget}}',
+          EVENT: 'Event: {{period:schedule}}',
+        },
+        formatters: {
+          budget: {
+            format: 'numberRange',
+            options: { style: 'currency', currency: 'USD' },
+            postFormat: 'markParts',
+          },
+          schedule: {
+            format: 'dateTimeRange',
+            options: { month: 'short', day: 'numeric', timeZone: 'UTC' },
+            postFormat: 'markParts',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('BUDGET', { amount: { start: 1200, end: 3400 } }), 'Budget: numberRange:$1,200.00 – $3,400.00:true')
+    assert.equal(M2.message('EVENT', { period: { start: '2026-03-23', end: '2026-03-25' } }), 'Event: dateTimeRange:Mar 23 – 25:true')
+  })
+
+  it("postFormat errors fall back to the built-in formatter result", () => {
+    const logs = []
+    const logger = {
+      log: (...args) => logs.push(['log', ...args]),
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args]),
+      error: (...args) => logs.push(['error', ...args]),
+    }
+    const M2 = new IntlMsg({ log: logger, verbose: true })
+    M2.addLocale('en-US')
+    M2.registerFormatter('brokenPostFormatter', () => {
+      throw new Error('broken post formatter')
+    })
+    M2.addDictionary({
+      en: {
+        translations: {
+          TOTAL: 'Total: {{amount:price}}',
+        },
+        formatters: {
+          price: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+            postFormat: 'brokenPostFormatter',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('TOTAL', { amount: 1234.5 }), 'Total: $1,234.50')
+    assert.equal(logs[0][0], 'error')
+    assert.equal(logs[0][1], "Formatter 'number' postFormat error.")
+  })
+
   it("invalid per-locale dictionary payload is ignored without crashing", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en')
