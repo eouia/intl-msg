@@ -168,6 +168,46 @@ The original motivation also points toward future design areas:
 
 Those ideas are compatible with the current direction. They are not a departure from the project; they are part of its original intent.
 
+## Relationship to `Intl.MessageFormat`
+
+It is reasonable to ask whether this project overlaps with the emerging `Intl.MessageFormat` proposal.
+
+The answer is: partially, yes.
+
+There is likely overlap in areas such as:
+
+- message templating
+- plural and select-style branching
+- parts-oriented output
+- locale-aware final message formatting
+
+That overlap does not automatically make `intl-msg` redundant, because this project also has a different center of gravity.
+
+The parts that remain especially important here are:
+
+- dictionary storage and composition
+- partial dictionaries and merge behavior
+- locale fallback chains
+- application-controlled loading and composition helpers
+- user and language-pack overrides
+- lightweight formatter orchestration around native `Intl`
+
+In other words:
+
+- `Intl.MessageFormat` aims toward a standard message-formatting primitive
+- `intl-msg` is strongest when it acts as a dictionary resolution, fallback, and composition engine around native `Intl`
+
+This means future work should be careful about expanding deep custom message-language features when a standards-based primitive may eventually cover that space better.
+
+The safer long-term direction is to stay strong in:
+
+- dictionary composition
+- fallback policy
+- locale-aware formatter integration
+- customization and override workflows
+
+and to treat message syntax features as a lightweight layer, not the entire identity of the project.
+
 ## In one sentence
 
 `intl-msg` exists to make localization more maintainable, more locale-aware, and more customizable than a simple translation table, while still staying lightweight and rooted in native `Intl`.
