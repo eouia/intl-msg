@@ -495,6 +495,8 @@ Formats and returns the final message string.
 
 Registers a custom formatter callback.
 
+Dictionary formatter configs for Intl-backed built-ins may also set `postFormat` to the name of a registered formatter.
+
 ## Development
 
 Install dependencies and run tests:
