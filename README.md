@@ -31,6 +31,10 @@ Required built-in `Intl` APIs:
 - `Intl.ListFormat`
 - `Intl.NumberFormat`
 
+Optional but used when available:
+
+- `Intl.Locale`
+
 Required JavaScript features in the runtime:
 
 - ES modules or a bundler that can consume them
@@ -38,7 +42,7 @@ Required JavaScript features in the runtime:
 - optional chaining
 - nullish coalescing
 
-If your target runtime does not provide the required `Intl` APIs, you must inject a compatible `intlPolyfill` when constructing `IntlMsg`.
+If your target runtime does not provide the required `Intl` APIs, you must inject a compatible `intlPolyfill` when constructing `IntlMsg`. A compatible polyfill only needs to provide the required APIs listed above; `Intl.Locale` is optional.
 
 Locale input remains compatibility-friendly:
 
@@ -189,6 +193,59 @@ msg.addDictionary({
 msg.message('TOTAL', { amount: 1234.5 })
 // => 'Total: $1,234.50'
 ```
+
+### Nested path substitution
+
+Placeholders can read nested object and array values from the `values` object passed to `message()`.
+
+Supported path forms:
+
+- `{{user.name}}`
+- `{{items[0]}}`
+- `{{items[0].label}}`
+- `{{user["display-name"]}}`
+- `{{user['home city']}}`
+- `{{catalog["items"][0]["unit-price"]:currency}}`
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      SUMMARY: 'User {{user.profile.name}} in {{user["home city"]}} bought {{items[0].label}} for {{catalog["items"][0]["unit-price"]:currency}}.',
+    },
+    formatters: {
+      currency: {
+        format: 'number',
+        options: { style: 'currency', currency: 'USD' },
+      },
+    },
+  },
+})
+
+msg.message('SUMMARY', {
+  user: {
+    profile: { name: 'Taylor' },
+    'home city': 'Seoul',
+  },
+  items: [
+    { label: 'Keyboard' },
+  ],
+  catalog: {
+    items: [
+      { 'unit-price': 19.99 },
+    ],
+  },
+})
+// => 'User Taylor in Seoul bought Keyboard for $19.99.'
+```
+
+This path syntax is intentionally limited to property and index access. It does not evaluate arbitrary JavaScript expressions.
+
+Lookup behavior:
+
+- missing paths are left unchanged in the output, such as `{{user.profile.name}}`
+- falsy values such as `0`, `false`, and `''` are treated as real values and are substituted normally
+- intermediate `null` or missing objects do not throw; the original placeholder is preserved instead
 
 ## Locale fallback
 

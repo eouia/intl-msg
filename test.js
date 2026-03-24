@@ -747,6 +747,84 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(M2.message('HELLO'), 'Hello')
   })
 
+  it("intlPolyfill injection: instances keep their own Intl implementation", () => {
+    class NumberFormatA extends Intl.NumberFormat {
+      format(value) {
+        return `A:${super.format(value)}`
+      }
+    }
+
+    class NumberFormatB extends Intl.NumberFormat {
+      format(value) {
+        return `B:${super.format(value)}`
+      }
+    }
+
+    const intlA = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: Intl.PluralRules,
+      DateTimeFormat: Intl.DateTimeFormat,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: NumberFormatA,
+      DurationFormat: Intl.DurationFormat,
+      Locale: Intl.Locale,
+      supportedValuesOf: Intl.supportedValuesOf,
+    }
+
+    const intlB = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: Intl.PluralRules,
+      DateTimeFormat: Intl.DateTimeFormat,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: NumberFormatB,
+      DurationFormat: Intl.DurationFormat,
+      Locale: Intl.Locale,
+      supportedValuesOf: Intl.supportedValuesOf,
+    }
+
+    const A = new IntlMsg({ intlPolyfill: intlA })
+    A.addLocale('en')
+    A.addDictionary({
+      en: {
+        translations: { TOTAL: 'Total: {{amount:money}}' },
+        formatters: { money: { format: 'number' } },
+      },
+    })
+
+    const B = new IntlMsg({ intlPolyfill: intlB })
+    B.addLocale('en')
+    B.addDictionary({
+      en: {
+        translations: { TOTAL: 'Total: {{amount:money}}' },
+        formatters: { money: { format: 'number' } },
+      },
+    })
+
+    assert.equal(A.message('TOTAL', { amount: 1 }), 'Total: A:1')
+    assert.equal(B.message('TOTAL', { amount: 1 }), 'Total: B:1')
+    assert.equal(A.message('TOTAL', { amount: 1 }), 'Total: A:1')
+  })
+
+  it("intlPolyfill injection: Locale is optional on a compatible polyfill", () => {
+    const intlWithoutLocale = {
+      getCanonicalLocales: Intl.getCanonicalLocales,
+      PluralRules: Intl.PluralRules,
+      DateTimeFormat: Intl.DateTimeFormat,
+      RelativeTimeFormat: Intl.RelativeTimeFormat,
+      ListFormat: Intl.ListFormat,
+      NumberFormat: Intl.NumberFormat,
+      DurationFormat: Intl.DurationFormat,
+      supportedValuesOf: Intl.supportedValuesOf,
+    }
+
+    const M2 = new IntlMsg({ intlPolyfill: intlWithoutLocale })
+    M2.addLocale('en_US')
+    M2.addDictionary({ en: { translations: { HELLO: 'Hello' } } })
+    assert.equal(M2.message('HELLO'), 'Hello')
+  })
+
   it("duration formatter falls back gracefully when Intl.DurationFormat is unavailable", () => {
     const logs = []
     const logger = {
@@ -1173,6 +1251,178 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(logs.length, 1)
     assert.equal(logs[0][0], 'warn')
     assert.equal(logs[0][1], 'Invalid dictionary data:')
+  })
+
+  it("message() resolves deep object paths inside placeholders", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          PROFILE: 'User {{user.profile.name}} is in {{user.profile.location.city}}.',
+        },
+      },
+    })
+
+    const translated = M2.message('PROFILE', {
+      user: {
+        profile: {
+          name: 'Taylor',
+          location: {
+            city: 'Seoul',
+          },
+        },
+      },
+    })
+
+    assert.equal(translated, 'User Taylor is in Seoul.')
+  })
+
+  it("message() resolves array indexes and nested formatter paths", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          SUMMARY: 'First item: {{items[0].name}}, total: {{order.lines[1].price:currency}}',
+        },
+        formatters: {
+          currency: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('SUMMARY', {
+      items: [
+        { name: 'Keyboard' },
+      ],
+      order: {
+        lines: [
+          { price: 10 },
+          { price: 24.5 },
+        ],
+      },
+    })
+
+    assert.equal(translated, 'First item: Keyboard, total: $24.50')
+  })
+
+  it("message() resolves quoted bracket keys in deep paths", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          QUOTED_KEYS: 'Name: {{user["display-name"]}}, City: {{user[\'home city\']}}, Price: {{catalog["items"][0]["unit-price"]:currency}}',
+        },
+        formatters: {
+          currency: {
+            format: 'number',
+            options: { style: 'currency', currency: 'USD' },
+          },
+        },
+      },
+    })
+
+    const translated = M2.message('QUOTED_KEYS', {
+      user: {
+        'display-name': 'Taylor',
+        'home city': 'Seoul',
+      },
+      catalog: {
+        items: [
+          {
+            'unit-price': 19.99,
+          },
+        ],
+      },
+    })
+
+    assert.equal(translated, 'Name: Taylor, City: Seoul, Price: $19.99')
+  })
+
+  it("message() leaves placeholders unchanged for missing deep paths", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          MISSING: 'Known={{user.name}}, Missing={{user.profile.name}}, Out={{items[3].label}}',
+        },
+      },
+    })
+
+    const translated = M2.message('MISSING', {
+      user: { name: 'Taylor' },
+      items: [{ label: 'Keyboard' }],
+    })
+
+    assert.equal(translated, 'Known=Taylor, Missing={{user.profile.name}}, Out={{items[3].label}}')
+  })
+
+  it("message() does not crash when an intermediate deep path value is null", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          NULL_PATH: 'Name={{user.profile.name}}',
+        },
+      },
+    })
+
+    assert.doesNotThrow(() => {
+      assert.equal(
+        M2.message('NULL_PATH', {
+          user: { profile: null },
+        }),
+        'Name={{user.profile.name}}'
+      )
+    })
+  })
+
+  it("message() preserves falsy values from deep paths", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          FALSY: 'Count={{stats.count}}, Enabled={{flags.enabled}}, Nick={{profile.nickname}}',
+        },
+      },
+    })
+
+    const translated = M2.message('FALSY', {
+      stats: { count: 0 },
+      flags: { enabled: false },
+      profile: { nickname: '' },
+    })
+
+    assert.equal(translated, 'Count=0, Enabled=false, Nick=')
+  })
+
+  it("message() resolves escaped quotes and backslashes inside quoted bracket keys", () => {
+    const M2 = new IntlMsg({ intlPolyfill: Intl })
+    M2.addLocale('en')
+    M2.addDictionary({
+      en: {
+        translations: {
+          ESCAPED_KEYS: 'Quote={{meta["a\\"b"]}}, Slash={{meta[\'path\\\\name\']}}',
+        },
+      },
+    })
+
+    const translated = M2.message('ESCAPED_KEYS', {
+      meta: {
+        'a"b': 'quoted',
+        'path\\name': 'slash',
+      },
+    })
+
+    assert.equal(translated, 'Quote=quoted, Slash=slash')
   })
 })
 

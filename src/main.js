@@ -1,9 +1,5 @@
 const isBrowser = (typeof window !== 'undefined')
-
-var _intl = null
-if (typeof Intl !== 'undefined') {
-  _intl = Intl
-}
+const NATIVE_INTL = typeof Intl !== 'undefined' ? Intl : null
 
 
 function sanitizeLocaleInput(locale) {
@@ -11,12 +7,12 @@ function sanitizeLocaleInput(locale) {
   return locale.replace(/_/g, '-')
 }
 
-function createLocaleInfo(locale) {
+function createLocaleInfo(locale, intlApi) {
   const sanitizedLocale = sanitizeLocaleInput(locale)
   if (!sanitizedLocale) return null
 
   try {
-    const canonicalLocales = _intl.getCanonicalLocales(sanitizedLocale)
+    const canonicalLocales = intlApi.getCanonicalLocales(sanitizedLocale)
     const canonicalLocale = Array.isArray(canonicalLocales) ? canonicalLocales[0] : canonicalLocales
     const localeInfo = {
       original: locale,
@@ -25,8 +21,8 @@ function createLocaleInfo(locale) {
       baseName: canonicalLocale,
     }
 
-    if (typeof _intl.Locale === 'function') {
-      const intlLocale = new _intl.Locale(canonicalLocale)
+    if (typeof intlApi.Locale === 'function') {
+      const intlLocale = new intlApi.Locale(canonicalLocale)
       localeInfo.baseName = intlLocale.baseName || canonicalLocale
       localeInfo.language = intlLocale.language
       localeInfo.script = intlLocale.script
@@ -39,8 +35,8 @@ function createLocaleInfo(locale) {
   }
 }
 
-function normalizeToBcp47 (locale, func = ()=>{}) {
-  const localeInfo = createLocaleInfo(locale)
+function normalizeToBcp47 (locale, intlApi, func = ()=>{}) {
+  const localeInfo = createLocaleInfo(locale, intlApi)
   if (!localeInfo) return null
   const canonicalLocales = [localeInfo.canonical]
   if (typeof func === 'function') func(canonicalLocales)
@@ -66,6 +62,85 @@ function toShortStr (something, len = 20) {
   return (c.length > len) ? c.slice(0, len) + '...' : c
 }
 
+function parsePlaceholderExpression(expression) {
+  if (typeof expression !== 'string') return null
+  const trimmed = expression.trim()
+  if (!trimmed) return null
+
+  const match = trimmed.match(/^(?<path>[A-Za-z_$][\w$]*(?:\[\d+\]|\[(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\]|\.[A-Za-z_$][\w$]*)*)(?::(?<formatter>\w+))?$/)
+  if (!match?.groups?.path) return null
+
+  return {
+    path: match.groups.path,
+    formatter: match.groups.formatter || null,
+  }
+}
+
+function parsePathSegments(path) {
+  const segments = []
+  let cursor = 0
+
+  while (cursor < path.length) {
+    if (path[cursor] === '.') {
+      cursor += 1
+    }
+
+    const remaining = path.slice(cursor)
+    const identifierMatch = remaining.match(/^[A-Za-z_$][\w$]*/)
+    if (identifierMatch) {
+      segments.push(identifierMatch[0])
+      cursor += identifierMatch[0].length
+      continue
+    }
+
+    const numericIndexMatch = remaining.match(/^\[(\d+)\]/)
+    if (numericIndexMatch) {
+      segments.push(Number(numericIndexMatch[1]))
+      cursor += numericIndexMatch[0].length
+      continue
+    }
+
+    const quotedKeyMatch = remaining.match(/^\[(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')\]/)
+    if (quotedKeyMatch) {
+      const rawKey = quotedKeyMatch[1] ?? quotedKeyMatch[2] ?? ''
+      const quote = quotedKeyMatch[1] != null ? '"' : "'"
+      const unescapedKey = rawKey.replace(new RegExp(`\\\\${quote}`, 'g'), quote).replace(/\\\\/g, '\\')
+      segments.push(unescapedKey)
+      cursor += quotedKeyMatch[0].length
+      continue
+    }
+
+    return null
+  }
+
+  return segments
+}
+
+function resolvePathValue(root, path) {
+  const segments = parsePathSegments(path)
+  if (!Array.isArray(segments) || segments.length < 1) {
+    return { found: false, value: undefined }
+  }
+
+  let current = root
+  for (const segment of segments) {
+    if (current == null) return { found: false, value: undefined }
+    if (typeof segment === 'number') {
+      if (!Array.isArray(current) || segment < 0 || segment >= current.length) {
+        return { found: false, value: undefined }
+      }
+      current = current[segment]
+      continue
+    }
+    if (!Object(current) || !hasOwn(Object(current), segment)) {
+      return { found: false, value: undefined }
+    }
+    current = current[segment]
+  }
+
+  return { found: true, value: current }
+}
+
 function toDate (dateLike) {
   if (dateLike instanceof Date) return new Date(dateLike.getTime())
   var date = new Date(dateLike)
@@ -77,10 +152,10 @@ function isRangeObject(value) {
   return isPlainObject(value) && Object.hasOwn(value, 'start') && Object.hasOwn(value, 'end')
 }
 
-function getSupportedIntlValues(key) {
-  if (typeof _intl.supportedValuesOf !== 'function') return null
+function getSupportedIntlValues(intlApi, key) {
+  if (typeof intlApi.supportedValuesOf !== 'function') return null
   try {
-    return _intl.supportedValuesOf(key)
+    return intlApi.supportedValuesOf(key)
   } catch (e) {
     return null
   }
@@ -93,9 +168,9 @@ function normalizeIntlOptionValue(key, value) {
   return value
 }
 
-function normalizeRelativeTimeUnit(unit) {
+function normalizeRelativeTimeUnit(intlApi, unit) {
   const normalizedUnit = normalizeIntlOptionValue('unit', unit)
-  const supportedUnits = getSupportedIntlValues('unit')
+  const supportedUnits = getSupportedIntlValues(intlApi, 'unit')
   if (!supportedUnits) return normalizedUnit
   if (supportedUnits.includes(normalizedUnit)) return normalizedUnit
   if (normalizedUnit.endsWith('s')) {
@@ -105,7 +180,7 @@ function normalizeRelativeTimeUnit(unit) {
   return normalizedUnit
 }
 
-function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
+function validateIntlOptions(intlApi, options = {}, log = DEFAULT_LOGGER) {
   if (!isPlainObject(options)) return { valid: false, options }
 
   const supportedOptionKeys = ['currency', 'unit', 'calendar', 'numberingSystem']
@@ -113,7 +188,7 @@ function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
     if (!Object.hasOwn(options, key)) continue
 
     const normalizedValue = normalizeIntlOptionValue(key, options[key])
-    const supportedValues = getSupportedIntlValues(key)
+    const supportedValues = getSupportedIntlValues(intlApi, key)
     if (!supportedValues) {
       options[key] = normalizedValue
       continue
@@ -130,10 +205,10 @@ function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
   return { valid: true, options }
 }
 
-function toPossibleLocales(locales = []) {
+function toPossibleLocales(locales = [], intlApi) {
   if (!(Array.isArray(locales) && locales.length > 0)) return []
   return locales.reduce((result, locale) => {
-    const localeInfo = createLocaleInfo(locale)
+    const localeInfo = createLocaleInfo(locale, intlApi)
     if (!localeInfo) return result
 
     if (!result.includes(localeInfo.canonical)) result.push(localeInfo.canonical)
@@ -148,19 +223,34 @@ function toPossibleLocales(locales = []) {
   }, [])
 }
 
-function applyIntl(obj) {
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key)
+}
+
+function resolveIntl(intlPolyfill = null) {
   const required = [
-    'getCanonicalLocales', 'PluralRules', 'DateTimeFormat', 'RelativeTimeFormat',
-    'ListFormat', 'NumberFormat', 'Locale'
+    'getCanonicalLocales',
+    'PluralRules',
+    'DateTimeFormat',
+    'RelativeTimeFormat',
+    'ListFormat',
+    'NumberFormat',
   ]
+
   if (
-    obj !== null && typeof obj === 'object'
-    && required.every((p) => {
-      return obj.hasOwnProperty(p)
-    })
-  ) _intl = obj
-  if (!_intl || !_intl.hasOwnProperty(required[0])) throw new Error(
-    "This module requires native 'Intl' feature or representative polyfill injection."
+    intlPolyfill !== null
+    && typeof intlPolyfill === 'object'
+    && required.every((key) => hasOwn(intlPolyfill, key))
+  ) {
+    return intlPolyfill
+  }
+
+  if (NATIVE_INTL && required.every((key) => hasOwn(NATIVE_INTL, key))) {
+    return NATIVE_INTL
+  }
+
+  throw new Error(
+    "This module requires an Intl implementation with getCanonicalLocales, PluralRules, DateTimeFormat, RelativeTimeFormat, ListFormat, and NumberFormat."
   )
 }
 
@@ -175,12 +265,11 @@ class Dictionary {
   #terms = new Map()
   #formatters = new Map()
   #name = ''
-  constructor (locale) {
-    normalizeToBcp47(locale, (lc) => {
+  constructor (locale, intlApi) {
+    normalizeToBcp47(locale, intlApi, (lc) => {
       this.#name = (Array.isArray(lc)) ? lc[0] || locale : locale
     })
     if (!this.#name) throw new Error(`Invalid locale name '${locale}' as dictionary`)
-    this.setTerm('TEST', 'This is a test phrase by default.')
   }
   setTerm (key, message) {
     return this.#terms.set(key, message)
@@ -201,13 +290,13 @@ class Dictionary {
 
 class IntlMsg {
   #dictionaries = new Map()
+  #intl = null
   #locales = []
   #formatters = {}
   #log = DEFAULT_LOGGER
 
   constructor ({ log = null, intlPolyfill = null, verbose = false } = {}) {
-    applyIntl(intlPolyfill)
-    if (!_intl.hasOwnProperty('getCanonicalLocales')) throw new Error("This module required native 'Intl' module or ")
+    this.#intl = resolveIntl(intlPolyfill)
     this.#initFormatters()
     this.setLogger(log, verbose)
   }
@@ -241,7 +330,7 @@ class IntlMsg {
     var newLocales = toArray(locales) 
     if (newLocales.length < 1) return this
     newLocales.forEach((lc) => {
-      normalizeToBcp47(lc, (filtered) => {
+      normalizeToBcp47(lc, this.#intl, (filtered) => {
         if (!(Array.isArray(filtered) && filtered.length >= 1)) return
         filtered.forEach((f) => {
           if (this.#locales.includes(f)) return
@@ -271,11 +360,11 @@ class IntlMsg {
     }
 
     var {translations = {}, formatters = {}} = dictData
-    var lc = normalizeToBcp47(locale)
+    var lc = normalizeToBcp47(locale, this.#intl)
     if (!lc) return this
     var dictionary = this.getDictionary(lc)
     if (!(dictionary instanceof Dictionary)) {
-      dictionary = new Dictionary(lc)
+      dictionary = new Dictionary(lc, this.#intl)
       this.#dictionaries.set(lc, dictionary)
     }
     if (translations && typeof translations === 'object') {
@@ -294,7 +383,7 @@ class IntlMsg {
   } 
 
   getDictionary(locale) {
-    var lc = normalizeToBcp47(locale)
+    var lc = normalizeToBcp47(locale, this.#intl)
     if (this.#dictionaries.has(lc)) return this.#dictionaries.get(lc)
     return null
   }
@@ -323,7 +412,7 @@ class IntlMsg {
     var originalLocale = null
     for (let rootLc of rootLocales) {
       if (found) break
-      for (let lc of toPossibleLocales([rootLc])) {
+      for (let lc of toPossibleLocales([rootLc], this.#intl)) {
         if (dictionaryList.includes(lc) && this.#dictionaries.get(lc).getTerm(key) !== undefined) {
           found = lc
           originalLocale = rootLc
@@ -345,53 +434,54 @@ class IntlMsg {
 
   message (key, options = {}) {
     var { message, dictionaryName, originalLocale } = this.#findTerms(key)
+    const placeholderPattern = /{{\s*([^{}]+?)\s*}}/gm
 
-    for (const prop of Object.keys(options)) {
-      var pattern = `{{((?<t>${prop})((?:\\:)(?<f>\\w+))?)}}`
-      var rx = new RegExp(pattern, 'gm')
-      var found = [...message.matchAll(rx)].map((i) => {
-        var val = options[prop]
-        var placeholder = i[0]
-        var groups = i?.groups
-        if (groups.f) {
-          var formatterDefinition = this.#dictionaries.get(dictionaryName)?.getFormatter(groups.f)
-          var formatterConfig = isPlainObject(formatterDefinition) ? { ...formatterDefinition } : formatterDefinition
-          var format = formatterConfig?.format
-          if (typeof this.#formatters[format] === 'function') {
-            try {
-              formatterConfig.value = val
-              if (formatterConfig.locales == null) formatterConfig.locales = originalLocale
-              val = this.#formatters[format](formatterConfig) ?? {}
-            } catch (e) {
-              this.#log.error (`Formatter '${format}' call error.`)
-              this.#log.error({
-                key: key,
-                formatterConfig: formatterConfig,
-              })
-              // val은 원본 값으로 유지 → 아래 message.replace(ph, val)에서 원본 값으로 치환
-            }
+    return message.replace(placeholderPattern, (placeholder, expression) => {
+      const parsed = parsePlaceholderExpression(expression)
+      if (!parsed) return placeholder
+
+      const resolved = resolvePathValue(options, parsed.path)
+      if (!resolved.found) return placeholder
+
+      let val = resolved.value
+      if (parsed.formatter) {
+        const formatterDefinition = this.#dictionaries.get(dictionaryName)?.getFormatter(parsed.formatter)
+        const formatterConfig = isPlainObject(formatterDefinition) ? { ...formatterDefinition } : formatterDefinition
+        const format = formatterConfig?.format
+
+        if (typeof this.#formatters[format] === 'function') {
+          try {
+            formatterConfig.value = val
+            if (formatterConfig.locales == null) formatterConfig.locales = originalLocale
+            val = this.#formatters[format](formatterConfig) ?? {}
+          } catch (e) {
+            this.#log.error (`Formatter '${format}' call error.`)
+            this.#log.error({
+              key: key,
+              formatterConfig: formatterConfig,
+            })
           }
         }
-        message = message.replace(placeholder, val)
-        return i?.groups
-      })
-    }
-    return message
+      }
+
+      return val
+    })
   }
 
   
 
   #initFormatters () {
+    const intlApi = this.#intl
     this.registerFormatter('pluralRules', function({locales, value, options, rules}) {
       if (isNaN(value)) return ''
-      var plural = new _intl.PluralRules(locales, options).select(value)
+      var plural = new intlApi.PluralRules(locales, options).select(value)
       return rules?.[plural] ?? rules?.other ?? ''
     })
     this.registerFormatter('pluralRange', ({locales, value, options, rules}) => {
       if (!isRangeObject(value)) return rules?.other ?? `${value?.toString() || value}`
       if (isNaN(value.start) || isNaN(value.end)) return rules?.other ?? `${value.start} - ${value.end}`
 
-      var pluralRules = new _intl.PluralRules(locales, options);
+      var pluralRules = new intlApi.PluralRules(locales, options);
       if (typeof pluralRules.selectRange !== 'function') {
         this.#log.warn("Formatter 'pluralRange' requires Intl.PluralRules.prototype.selectRange support.")
         return rules?.other ?? `${value.start}-${value.end}`
@@ -402,23 +492,23 @@ class IntlMsg {
     })
     this.registerFormatter('list', function ({locales, value, options = {}}) {
       if (!Array.isArray(value)) return value?.toString() || value
-      return new _intl.ListFormat(locales, options).format(value)
+      return new intlApi.ListFormat(locales, options).format(value)
     })
     this.registerFormatter('number', ({locales, value, options = {}} = {}) => {
       if (isNaN(value)) return value?.toString() || value
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
       if (!valid) return value?.toString() || value
-      var ret = new _intl.NumberFormat(locales, validatedOptions).format(value)
+      var ret = new intlApi.NumberFormat(locales, validatedOptions).format(value)
       return ret
     })
     this.registerFormatter('numberRange', ({locales, value, options = {}} = {}) => {
       if (!isRangeObject(value)) return value?.toString() || value
       if (isNaN(value.start) || isNaN(value.end)) return `${value.start} - ${value.end}`
 
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
       if (!valid) return `${value.start} - ${value.end}`
 
-      var formatter = new _intl.NumberFormat(locales, validatedOptions);
+      var formatter = new intlApi.NumberFormat(locales, validatedOptions);
       if (typeof formatter.formatRange !== 'function') {
         this.#log.warn("Formatter 'numberRange' requires Intl.NumberFormat.prototype.formatRange support.")
         return `${formatter.format(value.start)} - ${formatter.format(value.end)}`
@@ -432,20 +522,20 @@ class IntlMsg {
     this.registerFormatter('dateTime', ({locales, value, options = {}}) => {
       var date = toDate(value)
       if (!(date instanceof Date)) return value
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
       if (!valid) return value
-      return new _intl.DateTimeFormat(locales, validatedOptions).format(date)
+      return new intlApi.DateTimeFormat(locales, validatedOptions).format(date)
     })
     this.registerFormatter('dateTimeRange', ({locales, value, options = {}}) => {
       if (!isRangeObject(value)) return value?.toString() || value
 
       var start = toDate(value.start)
       var end = toDate(value.end)
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
 
       if (!valid) return `${value.start} - ${value.end}`
 
-      var formatter = new _intl.DateTimeFormat(locales, validatedOptions);
+      var formatter = new intlApi.DateTimeFormat(locales, validatedOptions);
 
       if (!(start instanceof Date) || !(end instanceof Date)) return `${value.start} - ${value.end}`
       if (typeof formatter.formatRange !== 'function') {
@@ -456,9 +546,9 @@ class IntlMsg {
     })
     this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds'}) => {
       if (isNaN(value)) return value?.toString() || value
-      var normalizedUnit = normalizeRelativeTimeUnit(unit)
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
-      var supportedUnits = getSupportedIntlValues('unit')
+      var normalizedUnit = normalizeRelativeTimeUnit(intlApi, unit)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
+      var supportedUnits = getSupportedIntlValues(intlApi, 'unit')
 
       if (!valid) return value?.toString() || value
       if (supportedUnits && !supportedUnits.includes(normalizedUnit)) {
@@ -466,17 +556,17 @@ class IntlMsg {
         return value?.toString() || value
       }
 
-      return new _intl.RelativeTimeFormat(locales, validatedOptions).format(value, normalizedUnit)
+      return new intlApi.RelativeTimeFormat(locales, validatedOptions).format(value, normalizedUnit)
     })
     this.registerFormatter('duration', ({locales, value, options = {}}) => {
-      if (typeof _intl.DurationFormat !== 'function') {
+      if (typeof intlApi.DurationFormat !== 'function') {
         this.#log.warn("Formatter 'duration' requires Intl.DurationFormat support.")
         return isPlainObject(value) ? JSON.stringify(value) : value?.toString() || value
       }
       if (!isPlainObject(value)) return value?.toString() || value
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
       if (!valid) return isPlainObject(value) ? JSON.stringify(value) : value?.toString() || value
-      return new _intl.DurationFormat(locales, validatedOptions).format(value)
+      return new intlApi.DurationFormat(locales, validatedOptions).format(value)
     })
     this.registerFormatter('humanizedRelativeTime', ({locales, value, options = {}}) => {
       var date = toDate(value)
@@ -500,9 +590,9 @@ class IntlMsg {
         unit = u
         gap = Math.floor(diff / f)
       }
-      var normalizedUnit = normalizeRelativeTimeUnit(unit)
-      var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
-      var supportedUnits = getSupportedIntlValues('unit')
+      var normalizedUnit = normalizeRelativeTimeUnit(intlApi, unit)
+      var { valid, options: validatedOptions } = validateIntlOptions(intlApi, options, this.#log)
+      var supportedUnits = getSupportedIntlValues(intlApi, 'unit')
 
       if (!valid) return value
       if (supportedUnits && !supportedUnits.includes(normalizedUnit)) {
@@ -510,7 +600,7 @@ class IntlMsg {
         return value
       }
 
-      return new _intl.RelativeTimeFormat(locales, validatedOptions).format(gap, normalizedUnit)
+      return new intlApi.RelativeTimeFormat(locales, validatedOptions).format(gap, normalizedUnit)
     })
     return this
   }
