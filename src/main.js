@@ -130,10 +130,12 @@ function validateIntlOptions(options = {}, log = DEFAULT_LOGGER) {
   return { valid: true, options }
 }
 
-function applyCustomFormatterTransform(customFormatter, context, fallbackValue, log, formatName) {
-  if (typeof customFormatter !== 'function') return fallbackValue
+function applyCustomFormatterTransform(customFormatter, context, fallbackValue, log, formatName, formatters = {}) {
+  var transform = customFormatter
+  if (typeof customFormatter === 'string') transform = formatters?.[customFormatter]
+  if (typeof transform !== 'function') return fallbackValue
   try {
-    return customFormatter(context) ?? fallbackValue
+    return transform(context) ?? fallbackValue
   } catch (e) {
     log.error(`Formatter '${formatName}' customFormatter error.`)
     log.error({
@@ -429,7 +431,8 @@ class IntlMsg {
         { value: ret, parts, locales, options: validatedOptions, rawValue: value },
         ret,
         this.#log,
-        'number'
+        'number',
+        this.#formatters
       )
     })
     this.registerFormatter('numberRange', ({locales, value, options = {}, customFormatter} = {}) => {
@@ -451,7 +454,8 @@ class IntlMsg {
         { value: ret, parts, locales, options: validatedOptions, rawValue: value },
         ret,
         this.#log,
-        'numberRange'
+        'numberRange',
+        this.#formatters
       )
     })
     this.registerFormatter('select', function({locales, value, options}) {
@@ -471,7 +475,8 @@ class IntlMsg {
         { value: ret, parts, locales, options: validatedOptions, rawValue: value },
         ret,
         this.#log,
-        'dateTime'
+        'dateTime',
+        this.#formatters
       )
     })
     this.registerFormatter('dateTimeRange', ({locales, value, options = {}, customFormatter}) => {
@@ -497,7 +502,8 @@ class IntlMsg {
         { value: ret, parts, locales, options: validatedOptions, rawValue: value },
         ret,
         this.#log,
-        'dateTimeRange'
+        'dateTimeRange',
+        this.#formatters
       )
     })
     this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds'}) => {

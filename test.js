@@ -1050,6 +1050,10 @@ describe(title("6. Additional coverage"), () => {
   it("number formatter customFormatter receives formatted value and parts", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en-US')
+    M2.registerFormatter('withCurrencySymbol', ({ value, parts }) => {
+      const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
+      return `${value} [${currency}]`
+    })
     M2.addDictionary({
       en: {
         translations: {
@@ -1059,10 +1063,7 @@ describe(title("6. Additional coverage"), () => {
           currency: {
             format: 'number',
             options: { style: 'currency', currency: 'USD' },
-            customFormatter: ({ value, parts }) => {
-              const currency = parts.find((part) => part.type === 'currency')?.value ?? ''
-              return `${value} [${currency}]`
-            },
+            customFormatter: 'withCurrencySymbol',
           },
         },
       },
@@ -1074,6 +1075,12 @@ describe(title("6. Additional coverage"), () => {
   it("dateTime formatter customFormatter receives formatted value and parts", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en-US')
+    M2.registerFormatter('clockParts', ({ parts }) => {
+      const hour = parts.find((part) => part.type === 'hour')?.value ?? ''
+      const minute = parts.find((part) => part.type === 'minute')?.value ?? ''
+      const dayPeriod = parts.find((part) => part.type === 'dayPeriod')?.value ?? ''
+      return `${hour}:${minute} ${dayPeriod}`.trim()
+    })
     M2.addDictionary({
       en: {
         translations: {
@@ -1083,12 +1090,7 @@ describe(title("6. Additional coverage"), () => {
           clock: {
             format: 'dateTime',
             options: { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' },
-            customFormatter: ({ parts }) => {
-              const hour = parts.find((part) => part.type === 'hour')?.value ?? ''
-              const minute = parts.find((part) => part.type === 'minute')?.value ?? ''
-              const dayPeriod = parts.find((part) => part.type === 'dayPeriod')?.value ?? ''
-              return `${hour}:${minute} ${dayPeriod}`.trim()
-            },
+            customFormatter: 'clockParts',
           },
         },
       },
@@ -1100,6 +1102,7 @@ describe(title("6. Additional coverage"), () => {
   it("range formatters customFormatter receive formatted value and parts", () => {
     const M2 = new IntlMsg()
     M2.addLocale('en-US')
+    M2.registerFormatter('markParts', ({ value, parts }) => `${value} (${Array.isArray(parts)})`)
     M2.addDictionary({
       en: {
         translations: {
@@ -1110,12 +1113,12 @@ describe(title("6. Additional coverage"), () => {
           budget: {
             format: 'numberRange',
             options: { style: 'currency', currency: 'USD' },
-            customFormatter: ({ value, parts }) => `${value} (${Array.isArray(parts)})`,
+            customFormatter: 'markParts',
           },
           schedule: {
             format: 'dateTimeRange',
             options: { month: 'short', day: 'numeric', timeZone: 'UTC' },
-            customFormatter: ({ value, parts }) => `${value} (${Array.isArray(parts)})`,
+            customFormatter: 'markParts',
           },
         },
       },
@@ -1135,6 +1138,9 @@ describe(title("6. Additional coverage"), () => {
     }
     const M2 = new IntlMsg({ log: logger, verbose: true })
     M2.addLocale('en-US')
+    M2.registerFormatter('brokenPostFormatter', () => {
+      throw new Error('broken custom formatter')
+    })
     M2.addDictionary({
       en: {
         translations: {
@@ -1144,9 +1150,7 @@ describe(title("6. Additional coverage"), () => {
           currency: {
             format: 'number',
             options: { style: 'currency', currency: 'USD' },
-            customFormatter: () => {
-              throw new Error('broken custom formatter')
-            },
+            customFormatter: 'brokenPostFormatter',
           },
         },
       },

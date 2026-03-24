@@ -118,7 +118,7 @@ These may be revisited later after the core formatter roadmap is complete.
 
 The `formatToParts()` follow-up was implemented in the smallest useful form:
 
-- `number`, `numberRange`, `dateTime`, and `dateTimeRange` can pass `parts` into a dictionary-level `customFormatter`
+- `number`, `numberRange`, `dateTime`, and `dateTimeRange` can pass `parts` into a registered formatter referenced by `customFormatter`
 - the main `message()` API still returns strings and remains the primary public output
 - no separate `...Parts` formatter family or `messageParts()` API was added
 - this keeps parts support available for advanced post-processing without turning structured parts into the library's main output model
