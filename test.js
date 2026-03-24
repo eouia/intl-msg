@@ -1128,6 +1128,50 @@ describe(title("6. Additional coverage"), () => {
     assert.equal(M2.message('EVENT', { period: { start: '2026-03-23', end: '2026-03-25' } }), 'Event: dateTimeRange:Mar 23 – 25:true')
   })
 
+  it("list formatter can hand formatted value and parts to postFormat", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.registerFormatter('markList', ({ value, parts, format }) => `${format}:${value}:${Array.isArray(parts)}`)
+    M2.addDictionary({
+      en: {
+        translations: {
+          COLORS: 'Colors: {{value:palette}}',
+        },
+        formatters: {
+          palette: {
+            format: 'list',
+            options: { style: 'long', type: 'conjunction' },
+            postFormat: 'markList',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('COLORS', { value: ['Red', 'Blue', 'White'] }), 'Colors: list:Red, Blue, and White:true')
+  })
+
+  it("relativeTime formatter can hand formatted value and parts to postFormat", () => {
+    const M2 = new IntlMsg()
+    M2.addLocale('en-US')
+    M2.registerFormatter('markRelative', ({ value, parts, unit }) => `${value}|${Array.isArray(parts)}|${unit}`)
+    M2.addDictionary({
+      en: {
+        translations: {
+          ETA: 'ETA: {{value:eta}}',
+        },
+        formatters: {
+          eta: {
+            format: 'relativeTime',
+            unit: 'day',
+            postFormat: 'markRelative',
+          },
+        },
+      },
+    })
+
+    assert.equal(M2.message('ETA', { value: 3 }), 'ETA: in 3 days|true|day')
+  })
+
   it("postFormat errors fall back to the built-in formatter result", () => {
     const logs = []
     const logger = {

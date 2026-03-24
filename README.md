@@ -357,10 +357,12 @@ Intl-backed built-in formatters can optionally pass their formatted result throu
 
 Supported built-in formatters currently provide `parts` when available:
 
+- `list`
 - `number`
 - `numberRange`
 - `dateTime`
 - `dateTimeRange`
+- `relativeTime`
 
 The post-formatter receives a context object including:
 

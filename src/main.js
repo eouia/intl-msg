@@ -416,9 +416,19 @@ class IntlMsg {
       var plural = pluralRules.selectRange(value.start, value.end);
       return rules?.[plural] ?? rules?.other ?? ''
     })
-    this.registerFormatter('list', function ({locales, value, options = {}}) {
+    this.registerFormatter('list', ({locales, value, options = {}, postFormat} = {}) => {
       if (!Array.isArray(value)) return value?.toString() || value
-      return new _intl.ListFormat(locales, options).format(value)
+      var formatter = new _intl.ListFormat(locales, options)
+      var ret = formatter.format(value)
+      var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(value) : undefined
+      return applyPostFormat(
+        postFormat,
+        { value: ret, parts, rawValue: value, locales, options, format: 'list' },
+        ret,
+        this.#log,
+        'list',
+        this.#formatters
+      )
     })
     this.registerFormatter('number', ({locales, value, options = {}, postFormat} = {}) => {
       if (isNaN(value)) return value?.toString() || value
@@ -507,7 +517,7 @@ class IntlMsg {
         this.#formatters
       )
     })
-    this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds'}) => {
+    this.registerFormatter('relativeTime', ({locales, value, options = {}, unit='seconds', postFormat}) => {
       if (isNaN(value)) return value?.toString() || value
       var normalizedUnit = normalizeRelativeTimeUnit(unit)
       var { valid, options: validatedOptions } = validateIntlOptions(options, this.#log)
@@ -519,7 +529,17 @@ class IntlMsg {
         return value?.toString() || value
       }
 
-      return new _intl.RelativeTimeFormat(locales, validatedOptions).format(value, normalizedUnit)
+      var formatter = new _intl.RelativeTimeFormat(locales, validatedOptions)
+      var ret = formatter.format(value, normalizedUnit)
+      var parts = typeof formatter.formatToParts === 'function' ? formatter.formatToParts(value, normalizedUnit) : undefined
+      return applyPostFormat(
+        postFormat,
+        { value: ret, parts, rawValue: value, locales, options: validatedOptions, format: 'relativeTime', unit: normalizedUnit },
+        ret,
+        this.#log,
+        'relativeTime',
+        this.#formatters
+      )
     })
     this.registerFormatter('duration', ({locales, value, options = {}}) => {
       if (typeof _intl.DurationFormat !== 'function') {
