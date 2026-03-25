@@ -581,3 +581,30 @@ const pathLoader = createPathLoader({
   readFile: fs.promises.readFile,
 })
 ```
+
+Node.js path example:
+
+```js
+import IntlMsg from 'intl-msg'
+import composeDictionaries from 'intl-msg/compose'
+import { createPathLoader } from 'intl-msg/loaders'
+import { readFile } from 'node:fs/promises'
+
+const loader = createPathLoader({
+  readFile,
+  resolvePath: ({ locale, source }) =>
+    `${process.cwd()}/dictionaries/${source}/${locale}.json`,
+})
+
+const dictionaries = await composeDictionaries(
+  [{ locale: 'en-US', source: 'default' }],
+  loader
+)
+
+const msg = IntlMsg.factory({
+  locales: ['en-US', 'en'],
+  dictionaries,
+})
+
+console.log(msg.message('HELLO'))
+```
