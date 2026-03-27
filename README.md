@@ -2,6 +2,29 @@
 
 Native `Intl`-based i18n message formatting for modern Node.js, browsers, and Electron, with no runtime dependencies.
 
+## Why this exists
+
+`intl-msg` started from practical localization problems that show up once a project grows beyond a simple translation table.
+
+Typical pain points look like this:
+
+- translation files become expensive to maintain because every regional or user-specific variant turns into a full copy
+- locale-specific differences in spelling, grammar, date formatting, and number formatting leak into application code
+- fallback behavior is too simple for real users who may prefer chains such as `fr-CA -> fr -> en-CA -> en`
+- user overrides and minor-locale customizations are awkward to support cleanly
+
+The goal of this project is to keep localization lightweight while still supporting:
+
+- partial dictionaries instead of full duplicated dictionary snapshots
+- locale-aware formatting driven by native `Intl`
+- explicit locale fallback chains
+- custom formatter behavior that can live near translation data instead of in app logic
+- user or language-pack overrides without forcing the main application to ship every variation
+
+In short, `intl-msg` is not just a string lookup helper. It is a small dictionary resolution and message formatting layer built around native `Intl`.
+
+For the longer project rationale, see [VISION.md](/Users/seongnohyi/Workspace/work/intl-msg/VISION.md).
+
 ## Status
 
 The package now builds from a single source file and publishes both CommonJS and ESM outputs:
