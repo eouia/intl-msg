@@ -62,17 +62,17 @@ Not currently provided:
 ## Install
 
 ```sh
-npm install intl-msg
+npm install @eouia/intl-msg
 ```
 
-If you publish under a scoped or alternate package name, replace `intl-msg` accordingly.
+If you publish under a different package name, replace `@eouia/intl-msg` accordingly.
 
 ## Usage
 
 ### ESM
 
 ```js
-import IntlMsg from 'intl-msg'
+import IntlMsg from '@eouia/intl-msg'
 
 const msg = IntlMsg.factory({
   locales: ['en-US', 'en'],
@@ -91,7 +91,7 @@ console.log(msg.message('HELLO', { name: 'Taylor' }))
 ### CommonJS
 
 ```js
-const IntlMsg = require('intl-msg')
+const IntlMsg = require('@eouia/intl-msg')
 
 const msg = new IntlMsg()
 msg.addLocale(['en-US', 'en'])
@@ -541,7 +541,7 @@ For runtime language switching, prefer composing a fresh dictionary set and crea
 The package also provides an optional composition helper for building one merged dictionary from a priority plan:
 
 ```js
-import composeDictionaries from 'intl-msg/compose'
+import composeDictionaries from '@eouia/intl-msg/compose'
 
 const dictionaries = await composeDictionaries(
   [
@@ -563,7 +563,7 @@ This helper is intentionally small and optional. It does not replace the core `I
 The package also provides optional strict helpers via `intl-msg/loaders`:
 
 ```js
-import { createMemoryLoader, createFetchLoader, createPathLoader } from 'intl-msg/loaders'
+import { createMemoryLoader, createFetchLoader, createPathLoader } from '@eouia/intl-msg/loaders'
 ```
 
 These helpers are intentionally narrow:
