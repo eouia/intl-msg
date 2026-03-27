@@ -223,6 +223,22 @@ The library includes these built-in formatters:
 - `duration`
 - `humanizedRelativeTime`
 
+### Formatter overview
+
+| Formatter | Input shape | Primary purpose |
+| --- | --- | --- |
+| `select` | scalar | Pick a string from `options` by value |
+| `pluralRules` | number | Pick a string from `rules` by plural category |
+| `pluralRange` | `{ start, end }` | Pick a string from `rules` by plural range category |
+| `list` | array | Render a natural-language list |
+| `number` | number | Locale-aware number formatting |
+| `numberRange` | `{ start, end }` | Locale-aware numeric range formatting |
+| `dateTime` | date-like value | Locale-aware date/time formatting |
+| `dateTimeRange` | `{ start, end }` | Locale-aware date/time range formatting |
+| `relativeTime` | number | Relative time phrase with an explicit unit |
+| `humanizedRelativeTime` | date-like value | Relative time phrase with an inferred unit |
+| `duration` | duration record | Duration formatting via `Intl.DurationFormat` |
+
 ### Example
 
 ```js
@@ -340,6 +356,378 @@ msg.message('LABEL', {
 
 The `pluralRange` formatter expects `{ start, end }` and uses `Intl.PluralRules.prototype.selectRange()`.
 
+## Formatter reference
+
+### `select`
+
+Use `select` when the input value should directly choose a phrase from `options`.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      WELCOME: 'Welcome {{gender:title}} {{name}}.',
+    },
+    formatters: {
+      title: {
+        format: 'select',
+        options: {
+          female: 'Ms.',
+          male: 'Mr.',
+          other: '',
+        },
+      },
+    },
+  },
+})
+
+msg.message('WELCOME', { gender: 'female', name: 'Taylor' })
+// => 'Welcome Ms. Taylor.'
+```
+
+Expected input:
+
+- any scalar value that can be matched against keys in `options`
+
+Fallback behavior:
+
+- returns `options.other` when present
+- otherwise falls back to the original input value
+
+### `pluralRules`
+
+Use `pluralRules` when a number should choose a localized term by plural category.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      LABEL: 'There {{count:beVerb}} {{count}} {{count:unit}}.',
+    },
+    formatters: {
+      beVerb: {
+        format: 'pluralRules',
+        rules: {
+          one: 'is',
+          other: 'are',
+        },
+      },
+      unit: {
+        format: 'pluralRules',
+        rules: {
+          one: 'item',
+          other: 'items',
+        },
+      },
+    },
+  },
+})
+
+msg.message('LABEL', { count: 2 })
+// => 'There are 2 items.'
+```
+
+Expected input:
+
+- a number
+
+Fallback behavior:
+
+- returns `rules.other` when available
+- otherwise returns an empty string
+
+### `pluralRange`
+
+Use `pluralRange` when a numeric range should choose a localized term by range category.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      RANGE: '{{countText}} {{count:ticketLabel}}',
+    },
+    formatters: {
+      ticketLabel: {
+        format: 'pluralRange',
+        rules: {
+          one: 'ticket',
+          other: 'tickets',
+        },
+      },
+    },
+  },
+})
+
+msg.message('RANGE', {
+  countText: '1-3',
+  count: { start: 1, end: 3 },
+})
+// => '1-3 tickets'
+```
+
+Expected input:
+
+- `{ start, end }`
+
+Fallback behavior:
+
+- warns and falls back when `Intl.PluralRules.prototype.selectRange()` is unavailable
+
+### `list`
+
+Use `list` when you want locale-aware conjunctions such as "A, B, and C".
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      COLORS: 'Colors: {{value:palette}}',
+    },
+    formatters: {
+      palette: {
+        format: 'list',
+        options: { style: 'long', type: 'conjunction' },
+      },
+    },
+  },
+})
+
+msg.message('COLORS', { value: ['Red', 'Blue', 'White'] })
+// => 'Colors: Red, Blue, and White'
+```
+
+Expected input:
+
+- an array
+
+Fallback behavior:
+
+- returns the original value when the input is not an array
+
+### `number`
+
+Use `number` for locale-aware numbers, currency, percent, or unit display.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      TOTAL: 'Total: {{amount:price}}',
+    },
+    formatters: {
+      price: {
+        format: 'number',
+        options: { style: 'currency', currency: 'USD' },
+      },
+    },
+  },
+})
+
+msg.message('TOTAL', { amount: 1234.5 })
+// => 'Total: $1,234.50'
+```
+
+Expected input:
+
+- a number
+
+Fallback behavior:
+
+- validates commonly used Intl options when supported
+- returns the original value when the input is not numeric or options are invalid
+
+### `numberRange`
+
+Use `numberRange` when two numeric endpoints should be formatted as one localized range.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      BUDGET: 'Budget: {{amount:budget}}',
+    },
+    formatters: {
+      budget: {
+        format: 'numberRange',
+        options: { style: 'currency', currency: 'USD' },
+      },
+    },
+  },
+})
+
+msg.message('BUDGET', {
+  amount: { start: 1200, end: 3400 },
+})
+// => 'Budget: $1,200.00 - $3,400.00'
+```
+
+Expected input:
+
+- `{ start, end }`
+
+Fallback behavior:
+
+- warns and falls back to two separately formatted values joined by ` - ` when `formatRange()` is unavailable
+
+### `dateTime`
+
+Use `dateTime` for locale-aware date or time rendering from a date-like input.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      TODAY: 'Today is {{value:dateLabel}}.',
+    },
+    formatters: {
+      dateLabel: {
+        format: 'dateTime',
+        options: { weekday: 'long', month: 'long', day: 'numeric' },
+      },
+    },
+  },
+})
+
+msg.message('TODAY', { value: '2026-03-23' })
+// => 'Today is Monday, March 23.'
+```
+
+Expected input:
+
+- a `Date`, timestamp, or date-like string accepted by `new Date(...)`
+
+Fallback behavior:
+
+- returns the original value when the input cannot be parsed as a valid date
+
+### `dateTimeRange`
+
+Use `dateTimeRange` when two date-like values should be rendered as one localized range.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      EVENT: 'Event: {{period:schedule}}',
+    },
+    formatters: {
+      schedule: {
+        format: 'dateTimeRange',
+        options: { month: 'short', day: 'numeric' },
+      },
+    },
+  },
+})
+
+msg.message('EVENT', {
+  period: { start: '2026-03-23', end: '2026-03-25' },
+})
+// => 'Event: Mar 23-25'
+```
+
+Expected input:
+
+- `{ start, end }` with date-like values
+
+Fallback behavior:
+
+- warns and falls back to two separately formatted dates joined by ` - ` when `formatRange()` is unavailable
+
+### `relativeTime`
+
+Use `relativeTime` when the unit is known in advance.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      ETA: 'ETA: {{value:eta}}',
+    },
+    formatters: {
+      eta: {
+        format: 'relativeTime',
+        unit: 'day',
+      },
+    },
+  },
+})
+
+msg.message('ETA', { value: 3 })
+// => 'ETA: in 3 days'
+```
+
+Expected input:
+
+- a number
+
+Fallback behavior:
+
+- validates the unit when supported
+- returns the original value when the input is not numeric or the unit is invalid
+
+### `humanizedRelativeTime`
+
+Use `humanizedRelativeTime` when you want the unit inferred from the distance to now.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      WHEN: 'Updated {{value:ago}}',
+    },
+    formatters: {
+      ago: {
+        format: 'humanizedRelativeTime',
+      },
+    },
+  },
+})
+
+msg.message('WHEN', { value: new Date(Date.now() - 2 * 60 * 60 * 1000) })
+// => 'Updated 2 hours ago'
+```
+
+Expected input:
+
+- a date-like value
+
+Fallback behavior:
+
+- returns the original value when the input cannot be parsed as a valid date
+
+### `duration`
+
+Use `duration` for explicit duration records such as hours, minutes, and seconds.
+
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      ELAPSED: 'Elapsed: {{value:elapsed}}',
+    },
+    formatters: {
+      elapsed: {
+        format: 'duration',
+        options: { style: 'short' },
+      },
+    },
+  },
+})
+
+msg.message('ELAPSED', {
+  value: { hours: 1, minutes: 30, seconds: 5 },
+})
+// => 'Elapsed: 1 hr, 30 min, 5 sec'
+```
+
+Expected input:
+
+- an `Intl.DurationFormat`-style duration record object
+
+Fallback behavior:
+
+- warns and falls back gracefully when `Intl.DurationFormat` is unavailable
+
 ## Option validation
 
 When the runtime supports `Intl.supportedValuesOf()`, the library validates commonly used Intl options before constructing formatters.
@@ -449,6 +837,12 @@ Supported options:
 - `verbose`
 - `intlPolyfill`
 
+Example:
+
+```js
+const msg = new IntlMsg({ verbose: false })
+```
+
 ### `IntlMsg.factory(options?)`
 
 Convenience constructor. In addition to the constructor options, it also accepts:
@@ -456,13 +850,39 @@ Convenience constructor. In addition to the constructor options, it also accepts
 - `locales`
 - `dictionaries`
 
+Example:
+
+```js
+const msg = IntlMsg.factory({
+  locales: ['en-US', 'en'],
+  dictionaries: {
+    en: { translations: { HELLO: 'Hello' } },
+  },
+})
+
+msg.message('HELLO')
+// => 'Hello'
+```
+
 ### `addLocale(locales)`
 
 Adds one locale or an array of locales.
 
+```js
+msg.addLocale(['en-US', 'de'])
+msg.getLocale()
+// => ['en-US', 'de']
+```
+
 ### `setLocale(locales)`
 
 Replaces the current locale list.
+
+```js
+msg.setLocale(['fr-CA', 'fr', 'en'])
+msg.getLocale()
+// => ['fr-CA', 'fr', 'en']
+```
 
 ### `getLocale()`
 
@@ -472,33 +892,84 @@ Returns the current locale list.
 
 Merges dictionary data into the current instance.
 
+```js
+msg.addDictionary({
+  en: {
+    translations: {
+      HELLO: 'Hello, {{name}}.',
+    },
+  },
+})
+
+msg.message('HELLO', { name: 'Taylor' })
+// => 'Hello, Taylor.'
+```
+
 ### `getDictionary(locale)`
 
 Returns the `Dictionary` instance for a locale, or `null`.
+
+```js
+msg.getDictionary('en')
+// => Dictionary instance or null
+```
 
 ### `getDictionaryNames()`
 
 Returns the registered locale names.
 
+```js
+msg.getDictionaryNames()
+// => ['en', 'en-US']
+```
+
 ### `addTermToDictionary(locale, key, value)`
 
 Adds or replaces a translation term for a locale.
+
+```js
+msg.addTermToDictionary('en', 'BYE', 'Goodbye')
+msg.message('BYE')
+// => 'Goodbye'
+```
 
 ### `getTermFromDictionary(locale, key)`
 
 Returns a term value, or `undefined`.
 
+```js
+msg.getTermFromDictionary('en', 'HELLO')
+// => 'Hello, {{name}}.'
+```
+
 ### `getRawMessage(key, locales?)`
 
 Returns the untranslated template string selected by locale lookup.
+
+```js
+msg.getRawMessage('HELLO')
+// => 'Hello, {{name}}.'
+```
 
 ### `message(key, values?)`
 
 Formats and returns the final message string.
 
+```js
+msg.message('HELLO', { name: 'Taylor' })
+// => 'Hello, Taylor.'
+```
+
 ### `registerFormatter(name, fn)`
 
 Registers a custom formatter callback.
+
+```js
+msg.registerFormatter('capitalize', ({ value }) => {
+  const text = value == null ? '' : String(value)
+  return text ? text[0].toUpperCase() + text.slice(1).toLowerCase() : text
+})
+```
 
 Dictionary formatter configs may also set `postFormat` to the name of a registered formatter. Only two stages are supported: `format`, then `postFormat`.
 
