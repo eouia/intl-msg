@@ -1006,6 +1006,37 @@ npm test
 
 Tests currently build the package first, then run Mocha with `nyc` coverage.
 
+## Publishing
+
+Manual publish:
+
+```sh
+npm publish --access public
+```
+
+Trusted publishing via GitHub Actions is also configured in [publish.yml](/Users/seongnohyi/Workspace/work/intl-msg/.github/workflows/publish.yml).
+
+Current workflow behavior:
+
+- pushes of tags matching `v*` trigger the publish workflow
+- the workflow runs `npm ci`, `npm test`, and then `npm publish --access public`
+- npm trusted publishing must be configured on npmjs.com for this repository and workflow file
+
+To enable trusted publishing on npm:
+
+1. Open your package settings on npmjs.com
+2. Add a trusted publisher for GitHub Actions
+3. Use GitHub owner `eouia`
+4. Use repository `intl-msg`
+5. Use workflow file `publish.yml`
+
+After that, publishing a new release is:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## Production use
 
 `intl-msg` is usable in real applications today, especially when you want:
