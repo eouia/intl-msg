@@ -1,6 +1,6 @@
 {
   "name": "@eouia/intl-msg",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Native Intl-based i18n message formatting with dictionary fallback for Node.js and browsers",
   "type": "commonjs",
   "main": "./dist/cjs/main.cjs",
