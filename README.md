@@ -65,6 +65,8 @@ Not currently provided:
 npm install intl-msg
 ```
 
+If you publish under a scoped or alternate package name, replace `intl-msg` accordingly.
+
 ## Usage
 
 ### ESM

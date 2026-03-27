@@ -1,7 +1,7 @@
 {
   "name": "intl-msg",
   "version": "0.1.0",
-  "description": "Simple native `Intl` based message converter for nodeJS and browser (CommonJS and ES Module)",
+  "description": "Native Intl-based i18n message formatting with dictionary fallback for Node.js and browsers",
   "type": "commonjs",
   "main": "./dist/cjs/main.cjs",
   "module": "./dist/esm/main.js",
@@ -39,14 +39,18 @@
     "url": "git+https://github.com/eouia/intl-msg.git"
   },
   "keywords": [
-    "Intl",
-    "translator",
-    "json",
-    "module",
-    "language",
     "i18n",
     "l10n",
-    "esm"
+    "intl",
+    "localization",
+    "internationalization",
+    "message-formatting",
+    "dictionary",
+    "fallback",
+    "browser",
+    "node",
+    "esm",
+    "cjs"
   ],
   "author": "eouia0819@gmail.com",
   "license": "MIT",
